@@ -58,9 +58,10 @@ class AuthProvider extends ChangeNotifier {
         if (data != null) {
           _isPremium = data['isPremium'] ?? false;
           _premiumType = data['premiumType'];
-          _premiumExpiryDate = data['premiumExpiry'] != null
-              ? (data['premiumExpiry'] as Timestamp).toDate()
-              : null;
+          _premiumExpiryDate =
+              data['premiumExpiry'] != null
+                  ? (data['premiumExpiry'] as Timestamp).toDate()
+                  : null;
 
           // Check if premium has expired
           if (_isPremium &&
@@ -96,6 +97,15 @@ class AuthProvider extends ChangeNotifier {
       _user = userCredential.user;
 
       if (_user != null) {
+        if (!_user!.emailVerified) {
+          await _auth.signOut();
+          _user = null;
+          _error = 'Please verify your email before logging in.';
+          _isLoading = false;
+          notifyListeners();
+          return;
+        }
+
         // Update last login timestamp
         await _firestore.collection('users').doc(_user!.uid).update({
           'lastLoginAt': Timestamp.now(),
@@ -130,6 +140,9 @@ class AuthProvider extends ChangeNotifier {
       if (_user != null) {
         // Update user profile
         await _user!.updateDisplayName(name);
+        await _user!.reload();
+        _user = _auth.currentUser;
+        await _user!.sendEmailVerification();
 
         // Create user document in Firestore
         await _firestore.collection('users').doc(_user!.uid).set({
@@ -350,6 +363,19 @@ class AuthProvider extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       debugPrint('Error activating premium: $e');
+    }
+  }
+
+  Future<void> reloadUser() async {
+    if (_auth.currentUser != null) {
+      await _auth.currentUser!.reload();
+      _user = _auth.currentUser;
+    }
+  }
+
+  Future<void> resendVerificationEmail() async {
+    if (_user != null && !_user!.emailVerified) {
+      await _user!.sendEmailVerification();
     }
   }
 
