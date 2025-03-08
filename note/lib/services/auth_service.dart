@@ -1,88 +1,131 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:note/models/user_model.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../models/user.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final GoogleSignIn _googleSignIn = GoogleSignIn();
 
-  // Lấy thông tin người dùng hiện tại
-  UserModel? get currentUser {
-    return _auth.currentUser != null 
-        ? UserModel.fromFirebaseUser(_auth.currentUser) 
-        : null;
-  }
+  // Get current user
+  User? get currentUser => _auth.currentUser;
 
-  // Stream trạng thái xác thực
-  Stream<UserModel?> get authStateChanges {
-    return _auth.authStateChanges().map((User? user) {
-      return user != null ? UserModel.fromFirebaseUser(user) : null;
-    });
-  }
-
-  // Đăng ký bằng email và mật khẩu
-  Future<UserModel?> registerWithEmailAndPassword(String email, String password) async {
+  // Register with email and password
+  Future<UserCredential> registerWithEmailAndPassword(
+    String email,
+    String password,
+  ) async {
     try {
       UserCredential result = await _auth.createUserWithEmailAndPassword(
-        email: email, 
-        password: password
+        email: email,
+        password: password,
       );
-      return UserModel.fromFirebaseUser(result.user);
-    } on FirebaseAuthException catch (e) {
-      print('Lỗi đăng ký: ${e.message}');
+
+      // Create a new document for the user in Firestore
+      await _createUserInFirestore(result.user!);
+
+      // Send email verification
+      await result.user!.sendEmailVerification();
+
+      return result;
+    } catch (e) {
       rethrow;
     }
   }
 
-  // Đăng nhập bằng email và mật khẩu
-  Future<UserModel?> signInWithEmailAndPassword(String email, String password) async {
+  // Sign in with email and password
+  Future<UserCredential> signInWithEmailAndPassword(
+    String email,
+    String password,
+  ) async {
     try {
       UserCredential result = await _auth.signInWithEmailAndPassword(
-        email: email, 
-        password: password
+        email: email,
+        password: password,
       );
-      return UserModel.fromFirebaseUser(result.user);
-    } on FirebaseAuthException catch (e) {
-      print('Lỗi đăng nhập: ${e.message}');
+
+      // Check if email is verified
+      if (!result.user!.emailVerified) {
+        await _auth.signOut();
+        throw FirebaseAuthException(
+          code: 'email-not-verified',
+          message: 'Please verify your email before signing in.',
+        );
+      }
+
+      return result;
+    } catch (e) {
       rethrow;
     }
   }
 
-  // Đăng nhập bằng Google
-  Future<UserModel?> signInWithGoogle() async {
+  // Sign in with Google
+  Future<UserCredential> signInWithGoogle() async {
     try {
-      // Bắt đầu quy trình xác thực
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
-      
-      if (googleUser == null) return null;
+      if (googleUser == null) {
+        throw FirebaseAuthException(
+          code: 'sign-in-cancelled',
+          message: 'Google sign in was cancelled',
+        );
+      }
 
-      // Lấy thông tin xác thực từ request
-      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
-
-      // Tạo thông tin xác thực mới
+      final GoogleSignInAuthentication googleAuth =
+          await googleUser.authentication;
       final credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
       );
 
-      // Đăng nhập với Firebase
       UserCredential result = await _auth.signInWithCredential(credential);
-      
-      return UserModel.fromFirebaseUser(result.user);
-    } on FirebaseAuthException catch (e) {
-      print('Lỗi đăng nhập Google: ${e.message}');
+
+      // Create or update user in Firestore
+      await _createUserInFirestore(result.user!);
+
+      return result;
+    } catch (e) {
       rethrow;
     }
   }
 
-  // Đăng xuất
+  // Create user in Firestore
+  Future<void> _createUserInFirestore(User user) async {
+    UserModel userModel = UserModel(
+      id: user.uid,
+      email: user.email!,
+      displayName: user.displayName,
+      photoUrl: user.photoURL,
+      isPremium: false,
+    );
+
+    await _firestore
+        .collection('users')
+        .doc(user.uid)
+        .set(userModel.toMap(), SetOptions(merge: true));
+  }
+
+  // Sign out
   Future<void> signOut() async {
+    await _googleSignIn.signOut();
+    return await _auth.signOut();
+  }
+
+  // Reset password
+  Future<void> resetPassword(String email) async {
+    return await _auth.sendPasswordResetEmail(email: email);
+  }
+
+  // Get user data from Firestore
+  Future<UserModel?> getUserData() async {
     try {
-      await _googleSignIn.signOut();
-      return await _auth.signOut();
+      if (currentUser == null) return null;
+
+      DocumentSnapshot doc =
+          await _firestore.collection('users').doc(currentUser!.uid).get();
+      return UserModel.fromFirestore(doc);
     } catch (e) {
-      print('Lỗi đăng xuất: $e');
-      rethrow;
+      return null;
     }
   }
 }
