@@ -8,6 +8,7 @@ import 'package:note/providers/note_provider.dart';
 import 'package:note/providers/theme_provider.dart';
 import 'package:note/config/routes.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'dart:async';
 
 void main() {
@@ -20,6 +21,11 @@ void main() {
         // Initialize Firebase
         await Firebase.initializeApp();
         debugPrint('Firebase initialized successfully');
+
+        // Request permissions when app starts
+        if (!kIsWeb) {
+          await _requestPermissions();
+        }
 
         // Set persistence for Firebase Auth only on web platforms
         // This feature is only available on web
@@ -48,6 +54,15 @@ void main() {
       debugPrint('Stack trace: $stack');
     },
   );
+}
+
+// Function to request permissions
+Future<void> _requestPermissions() async {
+  // Request storage and camera permissions
+  await [Permission.storage, Permission.camera, Permission.photos].request();
+
+  // Không cần đợi người dùng cấp quyền, ứng dụng vẫn tiếp tục chạy
+  // Các màn hình cụ thể sẽ kiểm tra quyền khi cần thiết
 }
 
 // Widget to display when there's an initialization error
@@ -123,9 +138,11 @@ class MyApp extends StatelessWidget {
               return MaterialApp(
                 title: 'Note App',
                 // Sửa lỗi theme ở đây - đảm bảo sử dụng đúng theme cho dark/light mode
-                theme: themeProvider.isDarkMode
-                    ? themeProvider.darkTheme // Sử dụng dark theme
-                    : themeProvider.lightTheme, // Sử dụng light theme
+                theme:
+                    themeProvider.isDarkMode
+                        ? themeProvider
+                            .darkTheme // Sử dụng dark theme
+                        : themeProvider.lightTheme, // Sử dụng light theme
                 onGenerateRoute: Routes.generateRoute,
                 initialRoute: _determineInitialRoute(
                   authProvider,
