@@ -116,6 +116,24 @@ class AuthService {
     return await _auth.sendPasswordResetEmail(email: email);
   }
 
+  // Tải lại thông tin người dùng
+  Future<User?> reloadUser() async {
+    if (currentUser == null) return null;
+    await currentUser!.reload();
+    return _auth.currentUser;
+  }
+
+  // Gửi email xác thực
+  Future<void> sendVerificationEmail() async {
+    if (currentUser == null) {
+      throw FirebaseAuthException(
+        code: 'user-not-found',
+        message: 'Không tìm thấy người dùng hiện tại.',
+      );
+    }
+    await currentUser!.sendEmailVerification();
+  }
+
   // Get user data from Firestore
   Future<UserModel?> getUserData() async {
     try {
@@ -126,6 +144,80 @@ class AuthService {
       return UserModel.fromFirestore(doc);
     } catch (e) {
       return null;
+    }
+  }
+
+  // Thay đổi mật khẩu người dùng
+  Future<void> changePassword(
+    String currentPassword,
+    String newPassword,
+  ) async {
+    try {
+      if (currentUser == null || currentUser!.email == null) {
+        throw FirebaseAuthException(
+          code: 'user-not-found',
+          message: 'Không tìm thấy người dùng hiện tại.',
+        );
+      }
+
+      // Xác thực lại người dùng với mật khẩu hiện tại
+      AuthCredential credential = EmailAuthProvider.credential(
+        email: currentUser!.email!,
+        password: currentPassword,
+      );
+
+      await currentUser!.reauthenticateWithCredential(credential);
+
+      // Thay đổi mật khẩu
+      await currentUser!.updatePassword(newPassword);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  // Cập nhật thông tin người dùng
+  Future<void> updateUserProfile(String displayName, String? photoUrl) async {
+    try {
+      if (currentUser == null) {
+        throw FirebaseAuthException(
+          code: 'user-not-found',
+          message: 'Không tìm thấy người dùng hiện tại.',
+        );
+      }
+
+      // Cập nhật thông tin trong Firebase Auth
+      await currentUser!.updateDisplayName(displayName);
+      if (photoUrl != null) {
+        await currentUser!.updatePhotoURL(photoUrl);
+      }
+
+      // Cập nhật thông tin trong Firestore
+      await _firestore.collection('users').doc(currentUser!.uid).update({
+        'displayName': displayName,
+        if (photoUrl != null) 'photoUrl': photoUrl,
+      });
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  // Xóa tài khoản
+  Future<void> deleteAccount() async {
+    try {
+      if (currentUser == null) {
+        throw FirebaseAuthException(
+          code: 'user-not-found',
+          message: 'Không tìm thấy người dùng hiện tại.',
+        );
+      }
+
+      // Xóa dữ liệu người dùng khỏi Firestore
+      await _firestore.collection('users').doc(currentUser!.uid).delete();
+
+      // Xóa tài khoản Firebase Auth
+      await currentUser!.delete();
+    } catch (e) {
+      rethrow;
     }
   }
 }

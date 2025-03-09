@@ -42,11 +42,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
     });
 
     try {
-      await Provider.of<AuthProvider>(context, listen: false).register(
-        _emailController.text.trim(),
-        _passwordController.text,
-        _nameController.text.trim(),
-      );
+      await Provider.of<AuthProvider>(
+        context,
+        listen: false,
+      ).register(_emailController.text.trim(), _passwordController.text);
       if (mounted) {
         setState(() {
           _verificationInProgress = true;

@@ -61,29 +61,29 @@ class _LoginScreenState extends State<LoginScreen> {
 
     try {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      final success = await authProvider.loginWithGoogle();
+      await authProvider.loginWithGoogle();
 
-      if (success && context.mounted) {
+      // Kiểm tra nếu người dùng đã đăng nhập thành công
+      if (authProvider.isLoggedIn && context.mounted) {
         Navigator.pushReplacementNamed(context, '/notes');
-      } else if (!success && context.mounted) {
-        // Show error only if login failed and was not aborted by user
-        if (authProvider.error != null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                'Login failed: ${authProvider.error}',
-                style: const TextStyle(color: Colors.white),
-              ),
-              backgroundColor: Colors.red,
+      }
+      // Hiển thị lỗi nếu có
+      else if (authProvider.error != null && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Đăng nhập thất bại: ${authProvider.error}',
+              style: const TextStyle(color: Colors.white),
             ),
-          );
-        }
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error: ${e.toString()}'),
+            content: Text('Lỗi: ${e.toString()}'),
             backgroundColor: Colors.red,
           ),
         );
@@ -209,12 +209,12 @@ class _LoginScreenState extends State<LoginScreen> {
                       _isLoading
                           ? const CircularProgressIndicator()
                           : ElevatedButton(
-                              onPressed: _login,
-                              style: ElevatedButton.styleFrom(
-                                minimumSize: const Size.fromHeight(50),
-                              ),
-                              child: const Text('Login'),
+                            onPressed: _login,
+                            style: ElevatedButton.styleFrom(
+                              minimumSize: const Size.fromHeight(50),
                             ),
+                            child: const Text('Login'),
+                          ),
                       const SizedBox(height: 16),
                       const Row(
                         children: [

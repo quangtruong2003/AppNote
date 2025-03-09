@@ -1,407 +1,352 @@
-import 'dart:async';
+import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart';
+import 'dart:io';
+import '../services/auth_service.dart';
+import '../models/user.dart';
+import '../services/storage_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 
 class AuthProvider extends ChangeNotifier {
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final AuthService _authService = AuthService();
+  final StorageService _storageService = StorageService();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final GoogleSignIn _googleSignIn = GoogleSignIn();
-
-  User? _user;
-  bool _isLoading = false;
-  String? _error;
+  bool _loading = false;
+  UserModel? _user;
   bool _isPremium = false;
-  String? _premiumType;
-  DateTime? _premiumExpiryDate;
-
-  // Getters
-  User? get user => _user;
-  bool get isLoading => _isLoading;
-  String? get error => _error;
-  bool get isAuthenticated => _user != null;
-  bool get isPremium => _isPremium;
-  String? get premiumType => _premiumType;
-  DateTime? get premiumExpiryDate => _premiumExpiryDate;
+  String? _profileImageUrl;
+  String? _error;
 
   AuthProvider() {
     _init();
   }
 
   Future<void> _init() async {
-    // Set loading to true while initializing
-    _isLoading = true;
+    _loading = true;
     notifyListeners();
-
-    _auth.authStateChanges().listen((User? user) async {
-      _user = user;
-      if (user != null) {
-        await _loadUserPremiumStatus(user.uid);
-      } else {
-        _isPremium = false;
-        _premiumType = null;
-        _premiumExpiryDate = null;
-      }
-
-      // Set loading to false after initialization
-      _isLoading = false;
-      notifyListeners();
-    });
+    try {
+      await checkCurrentUser();
+    } catch (e) {
+      debugPrint('Init error: $e');
+    }
+    _loading = false;
+    notifyListeners();
   }
 
-  Future<void> _loadUserPremiumStatus(String userId) async {
-    try {
-      final doc = await _firestore.collection('users').doc(userId).get();
-      if (doc.exists) {
-        final data = doc.data();
-        if (data != null) {
-          _isPremium = data['isPremium'] ?? false;
-          _premiumType = data['premiumType'];
-          _premiumExpiryDate =
-              data['premiumExpiry'] != null
-                  ? (data['premiumExpiry'] as Timestamp).toDate()
-                  : null;
+  // Getters
+  bool get loading => _loading;
+  bool get isLoading => _loading; // Thêm alias cho loading để tương thích
+  User? get user => _authService.currentUser;
+  UserModel? get userModel => _user;
+  bool get isPremium => _isPremium;
+  bool get isLoggedIn => _authService.currentUser != null;
+  bool get isAuthenticated =>
+      _authService.currentUser != null; // Thêm alias cho isLoggedIn
+  String? get profileImageUrl => _profileImageUrl;
+  String? get error => _error; // Thêm getter cho error
 
-          // Check if premium has expired
-          if (_isPremium &&
-              _premiumExpiryDate != null &&
-              _premiumExpiryDate!.isBefore(DateTime.now())) {
-            _isPremium = false;
-            await _firestore.collection('users').doc(userId).update({
-              'isPremium': false,
-            });
-          }
-        }
+  // Kiểm tra xem người dùng có đăng nhập bằng Google không
+  bool get isGoogleSignIn {
+    final user = _authService.currentUser;
+    if (user == null) return false;
+
+    // Kiểm tra các provider ID để xác định phương thức đăng nhập
+    for (final providerProfile in user.providerData) {
+      if (providerProfile.providerId == 'google.com') {
+        return true;
       }
-    } catch (e) {
-      debugPrint('Error loading premium status: $e');
-      // Don't set error here to avoid showing permission errors to users
-      // For permission errors, we'll just continue without premium features
+    }
+    return false;
+  }
+
+  // Xử lý và lưu lỗi
+  void _setError(dynamic e) {
+    if (e is FirebaseAuthException) {
+      _error = e.message;
+    } else {
+      _error = e.toString();
     }
     notifyListeners();
   }
 
-  // Sign in with email and password
+  // Xóa thông báo lỗi
+  void clearError() {
+    _error = null;
+    notifyListeners();
+  }
+
+  // Kiểm tra người dùng hiện tại
+  Future<void> checkCurrentUser() async {
+    final user = _authService.currentUser;
+    if (user != null) {
+      _user = await _authService.getUserData();
+      _isPremium = _user?.isPremium ?? false;
+      _profileImageUrl = _user?.photoUrl;
+      notifyListeners();
+    }
+  }
+
+  // Đăng ký với email và mật khẩu
+  Future<void> registerWithEmailAndPassword(
+    String email,
+    String password,
+  ) async {
+    _loading = true;
+    notifyListeners();
+    try {
+      await _authService.registerWithEmailAndPassword(email, password);
+    } catch (e) {
+      _setError(e);
+      _loading = false;
+      notifyListeners();
+      rethrow;
+    }
+    _loading = false;
+    notifyListeners();
+  }
+
+  // Phương thức đăng ký (alias cho registerWithEmailAndPassword)
+  Future<void> register(String email, String password) async {
+    await registerWithEmailAndPassword(email, password);
+  }
+
+  // Đăng nhập với email và mật khẩu
+  Future<void> signInWithEmailAndPassword(String email, String password) async {
+    _loading = true;
+    _error = null;
+    notifyListeners();
+    try {
+      await _authService.signInWithEmailAndPassword(email, password);
+      await checkCurrentUser();
+    } catch (e) {
+      _setError(e);
+      _loading = false;
+      notifyListeners();
+      rethrow;
+    }
+    _loading = false;
+    notifyListeners();
+  }
+
+  // Phương thức đăng nhập (alias cho signInWithEmailAndPassword)
   Future<void> signIn(String email, String password) async {
-    _error = null;
-    _isLoading = true;
-    notifyListeners();
-
-    try {
-      final userCredential = await _auth.signInWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
-
-      _user = userCredential.user;
-
-      if (_user != null) {
-        if (!_user!.emailVerified) {
-          await _auth.signOut();
-          _user = null;
-          _error = 'Please verify your email before logging in.';
-          _isLoading = false;
-          notifyListeners();
-          return;
-        }
-
-        // Update last login timestamp
-        await _firestore.collection('users').doc(_user!.uid).update({
-          'lastLoginAt': Timestamp.now(),
-        });
-
-        await _loadUserPremiumStatus(_user!.uid);
-      }
-    } on FirebaseAuthException catch (e) {
-      _error = _getFirebaseAuthErrorMessage(e.code);
-    } catch (e) {
-      _error = e.toString();
-    } finally {
-      _isLoading = false;
-      notifyListeners();
-    }
+    await signInWithEmailAndPassword(email, password);
   }
 
-  // Register with email and password
-  Future<void> register(String email, String password, String name) async {
+  // Đăng nhập với Google
+  Future<void> signInWithGoogle() async {
+    _loading = true;
     _error = null;
-    _isLoading = true;
     notifyListeners();
-
     try {
-      final userCredential = await _auth.createUserWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
-
-      _user = userCredential.user;
-
-      if (_user != null) {
-        // Update user profile
-        await _user!.updateDisplayName(name);
-        await _user!.reload();
-        _user = _auth.currentUser;
-        await _user!.sendEmailVerification();
-
-        // Create user document in Firestore
-        await _firestore.collection('users').doc(_user!.uid).set({
-          'email': email,
-          'name': name,
-          'isPremium': false,
-          'notesCount': 0,
-          'createdAt': Timestamp.now(),
-          'lastLoginAt': Timestamp.now(),
-        });
-      }
-    } on FirebaseAuthException catch (e) {
-      _error = _getFirebaseAuthErrorMessage(e.code);
+      await _authService.signInWithGoogle();
+      await checkCurrentUser();
     } catch (e) {
-      _error = e.toString();
-    } finally {
-      _isLoading = false;
+      _setError(e);
+      _loading = false;
       notifyListeners();
+      rethrow;
     }
+    _loading = false;
+    notifyListeners();
   }
 
-  // Sign in with Google
-  Future<bool> loginWithGoogle() async {
-    _error = null;
-    _isLoading = true;
-    notifyListeners();
-
-    try {
-      // Begin interactive sign in process
-      GoogleSignInAccount? googleUser;
-      try {
-        googleUser = await _googleSignIn.signIn();
-      } catch (e) {
-        debugPrint('Google SignIn internal error: $e');
-        _isLoading = false;
-        _error = 'Google Sign In failed. Please try again.';
-        notifyListeners();
-        return false;
-      }
-
-      if (googleUser == null) {
-        _isLoading = false;
-        notifyListeners();
-        return false; // User canceled sign in
-      }
-
-      // Obtain auth details from request
-      final GoogleSignInAuthentication googleAuth =
-          await googleUser.authentication;
-
-      // Create new credential
-      final credential = GoogleAuthProvider.credential(
-        accessToken: googleAuth.accessToken,
-        idToken: googleAuth.idToken,
-      );
-
-      // Sign in with credential
-      final userCredential = await _auth.signInWithCredential(credential);
-      _user = userCredential.user;
-
-      // Update user data in Firestore with error handling for permissions
-      if (_user != null) {
-        try {
-          // Check if user already exists in Firestore
-          final docRef = _firestore.collection('users').doc(_user!.uid);
-          final doc = await docRef.get();
-
-          if (!doc.exists) {
-            // Create new user document in Firestore
-            try {
-              await docRef.set({
-                'email': _user!.email,
-                'name': _user!.displayName,
-                'photoUrl': _user!.photoURL,
-                'isPremium': false,
-                'notesCount': 0,
-                'createdAt': Timestamp.now(),
-                'lastLoginAt': Timestamp.now(),
-              });
-            } catch (firestoreError) {
-              debugPrint('Firestore create document error: $firestoreError');
-              // Continue even if this fails - user is still authenticated
-            }
-          } else {
-            // Update last login timestamp
-            try {
-              await docRef.update({
-                'lastLoginAt': Timestamp.now(),
-                'name': _user!.displayName,
-                'photoUrl': _user!.photoURL,
-              });
-            } catch (firestoreError) {
-              debugPrint('Firestore update document error: $firestoreError');
-              // Continue even if this fails - user is still authenticated
-            }
-          }
-
-          try {
-            await _loadUserPremiumStatus(_user!.uid);
-          } catch (premiumError) {
-            debugPrint('Error loading premium status: $premiumError');
-            // Continue without premium status
-          }
-        } catch (firestoreError) {
-          debugPrint('Firestore operations error: $firestoreError');
-          // The user is still authenticated with Firebase Auth, so we continue
-        }
-      }
-
-      _isLoading = false;
-      notifyListeners();
-      return true; // Authentication successful even if Firestore operations failed
-    } catch (e) {
-      debugPrint('Google Sign In Error: $e');
-      _error = 'Authentication failed. Please try again.';
-      _isLoading = false;
-      notifyListeners();
-      return false;
-    }
+  // Phương thức đăng nhập với Google (alias cho signInWithGoogle)
+  Future<void> loginWithGoogle() async {
+    await signInWithGoogle();
   }
 
-  // Sign out
+  // Đăng xuất
   Future<void> signOut() async {
-    _error = null;
-    _isLoading = true;
+    _loading = true;
     notifyListeners();
-
     try {
-      await _auth.signOut();
-      await _googleSignIn.signOut();
+      await _authService.signOut();
       _user = null;
       _isPremium = false;
-      _premiumType = null;
-      _premiumExpiryDate = null;
+      _profileImageUrl = null;
     } catch (e) {
-      _error = e.toString();
-    } finally {
-      _isLoading = false;
+      _setError(e);
+      _loading = false;
       notifyListeners();
+      rethrow;
     }
-  }
-
-  // Reset password
-  Future<void> resetPassword(String email) async {
-    _error = null;
-    _isLoading = true;
+    _loading = false;
     notifyListeners();
-
-    try {
-      await _auth.sendPasswordResetEmail(email: email);
-    } on FirebaseAuthException catch (e) {
-      _error = _getFirebaseAuthErrorMessage(e.code);
-    } catch (e) {
-      _error = e.toString();
-    } finally {
-      _isLoading = false;
-      notifyListeners();
-    }
   }
 
-  // Delete account
+  // Xóa tài khoản
   Future<void> deleteAccount() async {
-    _error = null;
-    _isLoading = true;
+    _loading = true;
+    notifyListeners();
+    try {
+      await _authService.deleteAccount();
+      _user = null;
+      _isPremium = false;
+      _profileImageUrl = null;
+    } catch (e) {
+      _setError(e);
+      _loading = false;
+      notifyListeners();
+      rethrow;
+    }
+    _loading = false;
+    notifyListeners();
+  }
+
+  // Đặt lại mật khẩu
+  Future<void> resetPassword(String email) async {
+    try {
+      await _authService.resetPassword(email);
+    } catch (e) {
+      _setError(e);
+      rethrow;
+    }
+  }
+
+  // Thay đổi mật khẩu
+  Future<void> changePassword(
+    String currentPassword,
+    String newPassword,
+  ) async {
+    _loading = true;
+    notifyListeners();
+    try {
+      await _authService.changePassword(currentPassword, newPassword);
+    } catch (e) {
+      _setError(e);
+      _loading = false;
+      notifyListeners();
+      rethrow;
+    }
+    _loading = false;
+    notifyListeners();
+  }
+
+  // Cập nhật thông tin hồ sơ người dùng - chỉ cập nhật tên
+  Future<void> updateProfile(String displayName) async {
+    _loading = true;
     notifyListeners();
 
     try {
-      final user = _auth.currentUser;
-      if (user != null) {
-        // Delete user data from Firestore
-        await _firestore.collection('users').doc(user.uid).delete();
+      // Chỉ cập nhật tên hiển thị, không cập nhật ảnh
+      await _authService.updateUserProfile(displayName, null);
 
-        // Delete user account
-        await user.delete();
-        _user = null;
-      }
-    } on FirebaseAuthException catch (e) {
-      _error = _getFirebaseAuthErrorMessage(e.code);
+      // Đảm bảo dữ liệu được làm mới
+      await checkCurrentUser();
     } catch (e) {
-      _error = e.toString();
-    } finally {
-      _isLoading = false;
+      _setError(e);
+      _loading = false;
       notifyListeners();
+      rethrow;
     }
+
+    _loading = false;
+    notifyListeners();
   }
 
-  // Activate premium
-  Future<void> activatePremium(String productId, String purchaseId) async {
-    if (_user == null) return;
-
-    try {
-      final String premiumType;
-      final DateTime expiryDate;
-
-      if (productId.contains('lifetime')) {
-        premiumType = 'Lifetime';
-        expiryDate = DateTime(2099, 12, 31); // Far future date
-      } else if (productId.contains('yearly')) {
-        premiumType = 'Yearly';
-        expiryDate = DateTime.now().add(const Duration(days: 365));
-      } else {
-        premiumType = 'Monthly';
-        expiryDate = DateTime.now().add(const Duration(days: 30));
-      }
-
-      await _firestore.collection('users').doc(_user!.uid).update({
-        'isPremium': true,
-        'premiumType': premiumType,
-        'premiumExpiry': Timestamp.fromDate(expiryDate),
-        'purchaseId': purchaseId,
-        'updatedAt': Timestamp.now(),
-      });
-
-      _isPremium = true;
-      _premiumType = premiumType;
-      _premiumExpiryDate = expiryDate;
-
-      notifyListeners();
-    } catch (e) {
-      debugPrint('Error activating premium: $e');
-    }
-  }
-
+  // Tải lại thông tin người dùng
   Future<void> reloadUser() async {
-    if (_auth.currentUser != null) {
-      await _auth.currentUser!.reload();
-      _user = _auth.currentUser;
+    _loading = true;
+    notifyListeners();
+    try {
+      await _authService.reloadUser();
+      await checkCurrentUser();
+    } catch (e) {
+      _setError(e);
+      _loading = false;
+      notifyListeners();
+      rethrow;
     }
+    _loading = false;
+    notifyListeners();
   }
 
+  // Gửi lại email xác thực
   Future<void> resendVerificationEmail() async {
-    if (_user != null && !_user!.emailVerified) {
-      await _user!.sendEmailVerification();
+    _loading = true;
+    notifyListeners();
+    try {
+      await _authService.sendVerificationEmail();
+    } catch (e) {
+      _setError(e);
+      _loading = false;
+      notifyListeners();
+      rethrow;
     }
+    _loading = false;
+    notifyListeners();
   }
 
-  // Helper method to get user-friendly error messages
-  String _getFirebaseAuthErrorMessage(String code) {
-    switch (code) {
-      case 'user-not-found':
-        return 'No user found with this email address.';
-      case 'wrong-password':
-        return 'Incorrect password. Please try again.';
-      case 'email-already-in-use':
-        return 'An account already exists with this email address.';
-      case 'weak-password':
-        return 'Password is too weak. Please use a stronger password.';
-      case 'invalid-email':
-        return 'Invalid email address format.';
-      case 'account-exists-with-different-credential':
-        return 'An account already exists with a different sign-in method.';
-      case 'operation-not-allowed':
-        return 'This operation is not allowed. Contact support.';
-      case 'user-disabled':
-        return 'This account has been disabled. Contact support.';
-      case 'requires-recent-login':
-        return 'This operation requires recent authentication. Please log in again.';
-      default:
-        return 'An error occurred. Please try again.';
+  // Đổi tên hàm này để tránh trùng lặp
+  Future<void> registerWithDisplayName(
+    String email,
+    String password, [
+    String? displayName,
+  ]) async {
+    _loading = true;
+    notifyListeners();
+    try {
+      await _authService.registerWithEmailAndPassword(email, password);
+
+      // Cập nhật tên hiển thị nếu được cung cấp
+      if (displayName != null &&
+          displayName.isNotEmpty &&
+          _authService.currentUser != null) {
+        await _authService.updateUserProfile(displayName, null);
+      }
+    } catch (e) {
+      _setError(e);
+      _loading = false;
+      notifyListeners();
+      rethrow;
     }
+    _loading = false;
+    notifyListeners();
+  }
+
+  // Các thuộc tính và phương thức liên quan đến premium
+  String? _premiumType;
+  DateTime? _premiumExpiryDate;
+
+  String? get premiumType => _premiumType;
+  DateTime? get premiumExpiryDate => _premiumExpiryDate;
+
+  // Kích hoạt tính năng premium
+  Future<void> activatePremium(String productId, String purchaseId) async {
+    _loading = true;
+    notifyListeners();
+    try {
+      // Thiết lập kiểu premium dựa trên sản phẩm đã mua
+      if (productId.contains('monthly')) {
+        _premiumType = 'Monthly';
+        _premiumExpiryDate = DateTime.now().add(const Duration(days: 30));
+      } else if (productId.contains('yearly')) {
+        _premiumType = 'Yearly';
+        _premiumExpiryDate = DateTime.now().add(const Duration(days: 365));
+      } else if (productId.contains('lifetime')) {
+        _premiumType = 'Lifetime';
+        _premiumExpiryDate = null; // Không hết hạn
+      }
+
+      // Cập nhật trạng thái premium
+      _isPremium = true;
+
+      // Cập nhật thông tin trong Firestore
+      if (user != null) {
+        await _firestore.collection('users').doc(user!.uid).update({
+          'isPremium': true,
+          'premiumType': _premiumType,
+          'premiumExpiryDate': _premiumExpiryDate?.toIso8601String(),
+          'purchaseId': purchaseId,
+        });
+      }
+    } catch (e) {
+      _setError(e);
+      _loading = false;
+      notifyListeners();
+      rethrow;
+    }
+    _loading = false;
+    notifyListeners();
   }
 }
