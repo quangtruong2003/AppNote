@@ -721,11 +721,11 @@ class _PremiumScreenState extends State<PremiumScreen> {
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 16),
-        const Text(
-          'If you enjoy using this app, please consider supporting its continued development with a donation.',
-          style: TextStyle(fontSize: 16),
-          textAlign: TextAlign.center,
-        ),
+        // const Text(
+        //   'If you enjoy using this app, please consider supporting its continued development with a donation.',
+        //   style: TextStyle(fontSize: 16),
+        //   textAlign: TextAlign.center,
+        // ),
         const SizedBox(height: 24),
       ],
     );
@@ -921,7 +921,7 @@ class _PremiumScreenState extends State<PremiumScreen> {
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
-            // QR Code - moved above bank details
+            // QR Code - optimized size for compact2 template
             if (_isLoadingQR)
               const CircularProgressIndicator()
             else if (_qrImageUrl != null)
@@ -931,13 +931,13 @@ class _PremiumScreenState extends State<PremiumScreen> {
                     borderRadius: BorderRadius.circular(12),
                     child: Image.network(
                       _qrImageUrl!,
-                      height: 250,
-                      width: 250,
-                      fit: BoxFit.cover,
+                      height: 350,
+                      width: 300,
+                      fit: BoxFit.contain,
                       errorBuilder: (context, error, stackTrace) {
                         return Container(
-                          height: 250,
-                          width: 250,
+                          height: 300,
+                          width: 300,
                           color: Colors.grey[300],
                           child: const Center(
                             child: Text(
@@ -1001,7 +1001,7 @@ class _PremiumScreenState extends State<PremiumScreen> {
                       message: "Donate NotesApp",
                     ).generateVietQR(),
                 version: QrVersions.auto,
-                size: 250,
+                size: 300,
                 backgroundColor: Colors.white,
                 errorStateBuilder:
                     (context, error) => Text(
@@ -1009,33 +1009,6 @@ class _PremiumScreenState extends State<PremiumScreen> {
                       style: const TextStyle(color: Colors.red),
                     ),
               ),
-            const SizedBox(height: 16),
-            // const Text(
-            //   'Scan this QR code with your banking app to complete the transfer',
-            //   textAlign: TextAlign.center,
-            //   style: TextStyle(fontStyle: FontStyle.italic),
-            // ),
-            // const SizedBox(height: 24),
-            // Bank details text - moved below QR code
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surfaceVariant,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Column(
-                children: [
-                  _bankDetailRow('Bank Name', _bankName),
-                  _bankDetailRow('Account Number', _accountNumber),
-                  _bankDetailRow('Account Name', _accountName),
-                  _bankDetailRow(
-                    'Amount',
-                    '${NumberFormat("#,###").format(_donationAmount)} VND',
-                  ),
-                  _bankDetailRow('Message', 'Donate NotesApp'),
-                ],
-              ),
-            ),
             const SizedBox(height: 24),
             // Thank you message
             const Column(

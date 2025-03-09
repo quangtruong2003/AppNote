@@ -30,7 +30,7 @@ class QRService {
     required String accountName,
     double? amount,
     String? message,
-    String template = 'compact',
+    String template = 'compact2',
   }) {
     final Uri uri = Uri.parse(
       'https://img.vietqr.io/image/$bankId-$accountNumber-$template.png',
