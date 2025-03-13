@@ -1,6 +1,9 @@
 platform :ios, '13.0'
 
-require_relative '../flutter_tools/bin/podhelper'
+# Tắt thống kê của CocoaPods (tùy chọn)
+ENV['COCOAPODS_DISABLE_STATS'] = 'true'
+
+require_relative '../.ios/Flutter/podhelper.rb'
 
 target 'Runner' do
   use_frameworks!
