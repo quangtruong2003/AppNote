@@ -10,10 +10,19 @@ workflows:
       - name: Clean project
         script: |
           flutter clean
+
       - name: Install dependencies
         script: |
           flutter pub get
           cd ios
           pod install --repo-update
-      - name: Build iOS app
-        script: flutter build ios --no-codesign
+          cd ..
+
+      - name: Build IPA
+        script: |
+          # Build file .ipa mà không cần code sign
+          flutter build ipa --no-codesign
+
+    artifacts:
+      # Chỉ định nơi Codemagic tìm file .ipa để hiển thị trong Artifacts
+      - build/ios/ipa/*.ipa
