@@ -74,8 +74,9 @@ post_install do |installer|
         config.build_settings['BUILD_LIBRARY_FOR_DISTRIBUTION'] = 'YES'
       end
       
-      # Xử lý đặc biệt cho plugin permission_handler_apple
-      if target.name == 'permission_handler_apple'
+      # Xử lý đặc biệt cho các plugin cần privacy manifest
+      privacy_plugins = ['permission_handler_apple', 'shared_preferences_foundation']
+      if privacy_plugins.include?(target.name)
         create_privacy_manifest(installer, target)
       end
     end
@@ -89,18 +90,21 @@ post_install do |installer|
   end
 end
 
-# Thêm hàm tạo privacy manifest cho permission_handler_apple
+# Cập nhật hàm tạo privacy manifest để hỗ trợ nhiều plugin
 def create_privacy_manifest(installer, target)
-  # Đảm bảo target là permission_handler_apple
-  return unless target.name == 'permission_handler_apple'
+  # Lấy tên plugin từ target
+  plugin_name = target.name
   
   # Thêm script phase để tạo thư mục và file cần thiết
-  phase = target.shell_script_build_phases.find { |phase| phase.name == 'Create Privacy Manifest' }
+  phase_name = "Create Privacy Manifest for #{plugin_name}"
+  phase = target.shell_script_build_phases.find { |phase| phase.name == phase_name }
+  
   if phase.nil?
-    phase = target.new_shell_script_build_phase('Create Privacy Manifest')
+    phase = target.new_shell_script_build_phase(phase_name)
     phase.shell_script = <<-SCRIPT
-    mkdir -p "${BUILT_PRODUCTS_DIR}/permission_handler_apple/permission_handler_apple_privacy.bundle"
-    touch "${BUILT_PRODUCTS_DIR}/permission_handler_apple/permission_handler_apple_privacy.bundle/permission_handler_apple_privacy"
+    mkdir -p "${BUILT_PRODUCTS_DIR}/#{plugin_name}/#{plugin_name}_privacy.bundle"
+    touch "${BUILT_PRODUCTS_DIR}/#{plugin_name}/#{plugin_name}_privacy.bundle/#{plugin_name}_privacy"
+    echo "Created privacy bundle for #{plugin_name}"
     SCRIPT
   end
 end
