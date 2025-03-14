@@ -16,20 +16,12 @@ workflows:
         script: |
           echo "Configure code signing settings"
       - name: Configure iOS project
-        script: |
-          cd ios
-          pod update
-          rm -rf ./build
-          # Tạo privacy bundle cho Debug (nếu cần)
-          mkdir -p build/ios/Debug-iphoneos/permission_handler_apple/permission_handler_apple_privacy.bundle
-          touch build/ios/Debug-iphoneos/permission_handler_apple/permission_handler_apple_privacy.bundle/permission_handler_apple_privacy
-          mkdir -p build/ios/Debug-iphoneos/shared_preferences_foundation/shared_preferences_foundation_privacy.bundle
-          touch build/ios/Debug-iphoneos/shared_preferences_foundation/shared_preferences_foundation_privacy.bundle/shared_preferences_foundation_privacy
-          
-          # Tạo privacy bundle cho Release
-          mkdir -p build/ios/Release-iphoneos/shared_preferences_foundation/shared_preferences_foundation_privacy.bundle
-          touch build/ios/Release-iphoneos/shared_preferences_foundation/shared_preferences_foundation_privacy.bundle/shared_preferences_foundation_privacy
-          cd ..
+    script: |
+      pod update
+      rm -rf build/ios
+      mkdir -p build/ios/Release-iphoneos/shared_preferences_foundation/shared_preferences_foundation_privacy.bundle
+      touch build/ios/Release-iphoneos/shared_preferences_foundation/shared_preferences_foundation_privacy.bundle/shared_preferences_foundation_privacy
+
       - name: Flutter packages get
         script: |
           flutter packages pub get
