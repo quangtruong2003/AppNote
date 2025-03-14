@@ -35,6 +35,8 @@ workflows:
             "GoogleUtilities:special:GoogleUtilities_Privacy"
             "GTMSessionFetcher:special:GTMSessionFetcher_Full_Privacy"
             "GTMSessionFetcher:special:GTMSessionFetcher_Core_Privacy"
+            "BoringSSL-GRPC:special:openssl_grpc"
+            "AppAuth:special:AppAuthCore_Privacy"
           )
           
           # Tạo thư mục gốc

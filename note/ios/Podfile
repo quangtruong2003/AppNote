@@ -56,7 +56,9 @@ post_install do |installer|
     'connectivity_plus',
     'abseil',
     'GoogleUtilities',
-    'GTMSessionFetcher'
+    'GTMSessionFetcher',
+    'BoringSSL-GRPC',  # Thêm mới
+    'AppAuth'          # Thêm mới
   ]
   
   # Danh sách các plugin có cấu trúc bundle đặc biệt
@@ -64,7 +66,9 @@ post_install do |installer|
     'leveldb-library' => ['leveldb_Privacy'],
     'abseil' => ['xcprivacy'],
     'GoogleUtilities' => ['GoogleUtilities_Privacy'],
-    'GTMSessionFetcher' => ['GTMSessionFetcher_Full_Privacy', 'GTMSessionFetcher_Core_Privacy']
+    'GTMSessionFetcher' => ['GTMSessionFetcher_Full_Privacy', 'GTMSessionFetcher_Core_Privacy'],
+    'BoringSSL-GRPC' => ['openssl_grpc'],  # Thêm mới
+    'AppAuth' => ['AppAuthCore_Privacy']   # Thêm mới
   }
   
   # Tạo script phase cho main project để tạo các privacy bundle trước
