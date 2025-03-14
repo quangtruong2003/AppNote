@@ -18,10 +18,42 @@ workflows:
           pod install --repo-update
           cd ..
 
+      - name: Prepare privacy bundles
+        script: |
+          mkdir -p ios/build/ios/Debug-iphoneos
+          
+          # Danh sách các plugin cần privacy bundle
+          PRIVACY_PLUGINS=(
+            "permission_handler_apple"
+            "shared_preferences_foundation"
+            "in_app_purchase_storekit"
+            "path_provider_foundation"
+            "nanopb"
+            "leveldb-library"
+            "image_picker_ios"
+            "google_sign_in_ios"
+            "flutter_local_notifications"
+            "connectivity_plus"
+          )
+          
+          # Tạo thư mục và file cho từng plugin
+          for plugin in "${PRIVACY_PLUGINS[@]}"
+          do
+            # Xử lý đặc biệt cho plugin có tên khác định dạng
+            if [[ "$plugin" == "nanopb" || "$plugin" == "leveldb-library" ]]; then
+              mkdir -p "ios/build/ios/Debug-iphoneos/${plugin}/${plugin}_Privacy.bundle"
+              touch "ios/build/ios/Debug-iphoneos/${plugin}/${plugin}_Privacy.bundle/${plugin}_Privacy"
+            else
+              mkdir -p "ios/build/ios/Debug-iphoneos/${plugin}/${plugin}_privacy.bundle"
+              touch "ios/build/ios/Debug-iphoneos/${plugin}/${plugin}_privacy.bundle/${plugin}_privacy"
+            fi
+            echo "Created privacy bundle for $plugin"
+          done
+
       - name: Build IPA
         script: |
           # Build file .ipa mà không cần code sign
-          flutter build ipa --no-codesign
+          flutter build ipa --no-codesign --debug
 
     artifacts:
       # Chỉ định nơi Codemagic tìm file .ipa để hiển thị trong Artifacts

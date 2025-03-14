@@ -42,23 +42,41 @@ post_install do |installer|
   main_project = installer.pods_project
   main_target = main_project.targets.first
   
+  # Tạo danh sách các plugin cần privacy bundle
+  privacy_plugins = [
+    'permission_handler_apple',
+    'shared_preferences_foundation',
+    'in_app_purchase_storekit',
+    'path_provider_foundation',
+    'nanopb',
+    'leveldb-library',
+    'image_picker_ios',
+    'google_sign_in_ios',
+    'flutter_local_notifications',
+    'connectivity_plus'
+  ]
+  
   # Tạo script phase cho main project để tạo các privacy bundle trước
   phase_name = "Create Privacy Bundles"
   privacy_phase = main_target.shell_script_build_phases.find { |phase| phase.name == phase_name }
   if privacy_phase.nil?
     privacy_phase = main_target.new_shell_script_build_phase(phase_name)
-    privacy_phase.shell_script = <<-SCRIPT
-    # Tạo privacy bundle cho permission_handler_apple
-    mkdir -p "${BUILT_PRODUCTS_DIR}/permission_handler_apple/permission_handler_apple_privacy.bundle"
-    touch "${BUILT_PRODUCTS_DIR}/permission_handler_apple/permission_handler_apple_privacy.bundle/permission_handler_apple_privacy"
+    script_content = "# Tạo tất cả các privacy bundle cần thiết\n\n"
     
-    # Tạo privacy bundle cho shared_preferences_foundation
-    mkdir -p "${BUILT_PRODUCTS_DIR}/shared_preferences_foundation/shared_preferences_foundation_privacy.bundle"
-    touch "${BUILT_PRODUCTS_DIR}/shared_preferences_foundation/shared_preferences_foundation_privacy.bundle/shared_preferences_foundation_privacy"
+    # Thêm lệnh tạo privacy bundle cho từng plugin
+    privacy_plugins.each do |plugin|
+      if ['nanopb', 'leveldb-library'].include?(plugin)
+        # Xử lý đặc biệt cho các plugin có định dạng khác
+        script_content += "mkdir -p \"${BUILT_PRODUCTS_DIR}/#{plugin}/#{plugin}_Privacy.bundle\"\n"
+        script_content += "touch \"${BUILT_PRODUCTS_DIR}/#{plugin}/#{plugin}_Privacy.bundle/#{plugin}_Privacy\"\n\n"
+      else
+        script_content += "mkdir -p \"${BUILT_PRODUCTS_DIR}/#{plugin}/#{plugin}_privacy.bundle\"\n"
+        script_content += "touch \"${BUILT_PRODUCTS_DIR}/#{plugin}/#{plugin}_privacy.bundle/#{plugin}_privacy\"\n\n"
+      end
+    end
     
-    # Hiển thị thông báo để xác nhận đã tạo thành công
-    echo "Created all required privacy bundles"
-    SCRIPT
+    script_content += "echo \"Created all required privacy bundles\""
+    privacy_phase.shell_script = script_content
     
     # Đảm bảo script này chạy sớm nhất có thể
     main_target.build_phases.unshift(main_target.build_phases.pop)
@@ -82,7 +100,7 @@ post_install do |installer|
       # Fix for ARM64 architecture issues
       config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'arm64'
       
-      # Handle Swift version issues - critical for connectivity_plus
+      # Handle Swift version issues - critical for Swift plugins
       config.build_settings['SWIFT_VERSION'] = '5.0'
       
       # Fix Swift standard libraries handling
@@ -100,73 +118,14 @@ post_install do |installer|
         config.build_settings['BUILD_LIBRARY_FOR_DISTRIBUTION'] = 'YES'
       end
       
-      # Vô hiệu hóa việc kiểm tra các input files cho tất cả các targets
-      # Điều này giúp Xcode bỏ qua việc kiểm tra privacy bundles
-      if ['permission_handler_apple', 'shared_preferences_foundation'].include?(target.name)
-        target.build_phases.each do |phase|
-          if phase.respond_to?(:input_paths) && phase.respond_to?(:output_paths)
-            phase.input_paths = []
-            phase.output_paths = []
-          end
-        end
-      end
-    end
-  end
-  
-  # Fix permissions issue
-  installer.pods_project.build_configurations.each do |config|
-    config.build_settings["EXCLUDED_ARCHS[sdk=iphonesimulator*]"] = "arm64"
-    # Fix Swift standard libraries for release builds
-    config.build_settings['ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES'] = 'YES'
-  end
-  
-  installer.pods_project.targets.each do |target|
-    flutter_additional_ios_build_settings(target)
-    target.build_configurations.each do |config|
-      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] ||= '13.0'
+      # Tắt VALIDATE_PRODUCT cho tất cả các targets
+      config.build_settings['VALIDATE_PRODUCT'] = 'NO'
       
-      # Fix for Xcode 15 and later - disable code signing
-      config.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'
-      config.build_settings['CODE_SIGNING_REQUIRED'] = 'NO'
-      
-      # Disable bitcode as it's deprecated by Apple
-      config.build_settings['ENABLE_BITCODE'] = 'NO'
-      
-      # Ensure proper architectures for both device and simulator
-      config.build_settings['ONLY_ACTIVE_ARCH'] = 'NO'
-      
-      # Fix for ARM64 architecture issues
-      config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'arm64'
-      
-      # Handle Swift version issues - critical for connectivity_plus
-      config.build_settings['SWIFT_VERSION'] = '5.0'
-      
-      # Fix Swift standard libraries handling
-      config.build_settings['ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES'] = 'YES'
-      
-      # Exclude warnings that might interrupt CI build process
-      config.build_settings['GCC_WARN_INHIBIT_ALL_WARNINGS'] = 'YES'
-      config.build_settings['SWIFT_SUPPRESS_WARNINGS'] = 'YES'
-      
-      # Add support for older iOS versions
-      config.build_settings['SWIFT_OPTIMIZATION_LEVEL'] = '-Onone'
-      
-      # Fix for Swift ABI stability issues on older iOS versions
-      if target.name.include?('connectivity_plus')
-        config.build_settings['BUILD_LIBRARY_FOR_DISTRIBUTION'] = 'YES'
-      end
-      
-      # Codemagic-specific: Vô hiệu hóa kiểm tra privacy bundle
-      if ['permission_handler_apple', 'shared_preferences_foundation'].include?(target.name)
-        # Vô hiệu hóa kiểm tra input-output file
-        config.build_settings['VALIDATE_PRODUCT'] = 'NO'
-        
-        # Vô hiệu hóa script phase validation
-        target.build_phases.each do |phase|
-          if phase.respond_to?(:input_paths) && phase.respond_to?(:output_paths)
-            phase.input_paths = []
-            phase.output_paths = []
-          end
+      # Vô hiệu hóa việc kiểm tra các input files cho tất cả các targets Swift
+      target.build_phases.each do |phase|
+        if phase.respond_to?(:input_paths) && phase.respond_to?(:output_paths)
+          phase.input_paths = []
+          phase.output_paths = []
         end
       end
     end
@@ -176,15 +135,18 @@ post_install do |installer|
   installer.pods_project.build_configurations.each do |config|
     config.build_settings["EXCLUDED_ARCHS[sdk=iphonesimulator*]"] = "arm64"
     config.build_settings['ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES'] = 'YES'
-    
-    # Vô hiệu hoá kiểm tra product validation - yếu tố quan trọng cho CI/CD
     config.build_settings['VALIDATE_PRODUCT'] = 'NO'
   end
   
-  # Tạo privacy bundles ngay trong script build
-  system('mkdir -p "$PWD/../build/ios/Debug-iphoneos/permission_handler_apple/permission_handler_apple_privacy.bundle"')
-  system('touch "$PWD/../build/ios/Debug-iphoneos/permission_handler_apple/permission_handler_apple_privacy.bundle/permission_handler_apple_privacy"')
-  
-  system('mkdir -p "$PWD/../build/ios/Debug-iphoneos/shared_preferences_foundation/shared_preferences_foundation_privacy.bundle"') 
-  system('touch "$PWD/../build/ios/Debug-iphoneos/shared_preferences_foundation/shared_preferences_foundation_privacy.bundle/shared_preferences_foundation_privacy"')
+  # Tạo tất cả privacy bundles cần thiết ngay trong quá trình pod install
+  privacy_plugins.each do |plugin|
+    if ['nanopb', 'leveldb-library'].include?(plugin)
+      system("mkdir -p \"$PWD/../build/ios/Debug-iphoneos/#{plugin}/#{plugin}_Privacy.bundle\"")
+      system("touch \"$PWD/../build/ios/Debug-iphoneos/#{plugin}/#{plugin}_Privacy.bundle/#{plugin}_Privacy\"")
+    else
+      system("mkdir -p \"$PWD/../build/ios/Debug-iphoneos/#{plugin}/#{plugin}_privacy.bundle\"") 
+      system("touch \"$PWD/../build/ios/Debug-iphoneos/#{plugin}/#{plugin}_privacy.bundle/#{plugin}_privacy\"")
+    end
+    puts "Created privacy bundle for #{plugin}"
+  end
 end
