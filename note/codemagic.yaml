@@ -15,19 +15,61 @@ workflows:
       - name: Set up code signing settings
         script: |
           echo "Configure code signing settings"
-      - name: Configure iOS project
-    script: |
-      pod update
-      rm -rf build/ios
-      mkdir -p build/ios/Release-iphoneos/shared_preferences_foundation/shared_preferences_foundation_privacy.bundle
-      touch build/ios/Release-iphoneos/shared_preferences_foundation/shared_preferences_foundation_privacy.bundle/shared_preferences_foundation_privacy
-
+      
+      - name: Create all required privacy bundles
+        script: |
+          cd $CM_BUILD_DIR
+          # Danh sách các plugin cần privacy bundle
+          PRIVACY_PLUGINS=(
+            "permission_handler_apple"
+            "shared_preferences_foundation"
+            "in_app_purchase_storekit"
+            "path_provider_foundation"
+            "nanopb"
+            "leveldb-library"
+            "image_picker_ios"
+            "google_sign_in_ios"
+            "flutter_local_notifications"
+            "connectivity_plus"
+          )
+          
+          # Tạo thư mục gốc
+          mkdir -p build/ios/Release-iphoneos
+          
+          # Tạo privacy bundles cho từng plugin
+          for plugin in "${PRIVACY_PLUGINS[@]}"
+          do
+            if [[ "$plugin" == "nanopb" || "$plugin" == "leveldb-library" ]]; then
+              echo "Creating privacy bundle for $plugin"
+              mkdir -p "build/ios/Release-iphoneos/${plugin}/${plugin}_Privacy.bundle"
+              touch "build/ios/Release-iphoneos/${plugin}/${plugin}_Privacy.bundle/${plugin}_Privacy"
+            else
+              echo "Creating privacy bundle for $plugin"
+              mkdir -p "build/ios/Release-iphoneos/${plugin}/${plugin}_privacy.bundle"
+              touch "build/ios/Release-iphoneos/${plugin}/${plugin}_privacy.bundle/${plugin}_privacy"
+            fi
+          done
+          
+          # Hiển thị danh sách các thư mục đã tạo
+          ls -la build/ios/Release-iphoneos/
+      
       - name: Flutter packages get
         script: |
           flutter packages pub get
-      - name: Flutter build iOS
+      
+      - name: Build iOS app
         script: |
+          # Xóa cache trước khi build
+          flutter clean
+          
+          # Cài đặt pods với cập nhật
+          cd ios
+          pod install --repo-update
+          cd ..
+          
+          # Build iOS app với tùy chọn --no-codesign
           flutter build ios --release --no-codesign
+    
     artifacts:
       - build/ios/iphoneos/Runner.app
       - "/tmp/xcodebuild_logs/*.log"

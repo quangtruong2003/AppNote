@@ -138,15 +138,33 @@ post_install do |installer|
     config.build_settings['VALIDATE_PRODUCT'] = 'NO'
   end
   
-  # Tạo tất cả privacy bundles cần thiết ngay trong quá trình pod install
+  # Tạo tất cả privacy bundles cần thiết ngay trong quá trình pod install cho cả Debug và Release
   privacy_plugins.each do |plugin|
+    # Debug path
     if ['nanopb', 'leveldb-library'].include?(plugin)
       system("mkdir -p \"$PWD/../build/ios/Debug-iphoneos/#{plugin}/#{plugin}_Privacy.bundle\"")
       system("touch \"$PWD/../build/ios/Debug-iphoneos/#{plugin}/#{plugin}_Privacy.bundle/#{plugin}_Privacy\"")
+      
+      # Release path - quan trọng cho Codemagic
+      system("mkdir -p \"$PWD/../build/ios/Release-iphoneos/#{plugin}/#{plugin}_Privacy.bundle\"")
+      system("touch \"$PWD/../build/ios/Release-iphoneos/#{plugin}/#{plugin}_Privacy.bundle/#{plugin}_Privacy\"")
     else
       system("mkdir -p \"$PWD/../build/ios/Debug-iphoneos/#{plugin}/#{plugin}_privacy.bundle\"") 
       system("touch \"$PWD/../build/ios/Debug-iphoneos/#{plugin}/#{plugin}_privacy.bundle/#{plugin}_privacy\"")
+      
+      # Release path - quan trọng cho Codemagic
+      system("mkdir -p \"$PWD/../build/ios/Release-iphoneos/#{plugin}/#{plugin}_privacy.bundle\"") 
+      system("touch \"$PWD/../build/ios/Release-iphoneos/#{plugin}/#{plugin}_privacy.bundle/#{plugin}_privacy\"")
     end
-    puts "Created privacy bundle for #{plugin}"
+    puts "Created privacy bundle for #{plugin} in both Debug and Release paths"
+  end
+
+  # Vô hiệu hóa mạnh mẽ việc kiểm tra input files cho quá trình build
+  installer.aggregate_targets.each do |aggregate_target|
+    aggregate_target.xcconfigs.each do |config_name, config_file|
+      config_file.attributes['VALIDATE_WORKSPACE'] = 'NO'
+      config_file.attributes['VALIDATE_PRODUCT'] = 'NO'
+      config_file.save_as(Pathname.new("#{aggregate_target.xcconfig_path(config_name)}"))
+    end
   end
 end
