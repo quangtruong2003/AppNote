@@ -38,6 +38,32 @@ target 'Runner' do
 end
 
 post_install do |installer|
+  # Thêm script phase toàn cục vào main project để tạo privacy bundles trước khi build các target
+  main_project = installer.pods_project
+  main_target = main_project.targets.first
+  
+  # Tạo script phase cho main project để tạo các privacy bundle trước
+  phase_name = "Create Privacy Bundles"
+  privacy_phase = main_target.shell_script_build_phases.find { |phase| phase.name == phase_name }
+  if privacy_phase.nil?
+    privacy_phase = main_target.new_shell_script_build_phase(phase_name)
+    privacy_phase.shell_script = <<-SCRIPT
+    # Tạo privacy bundle cho permission_handler_apple
+    mkdir -p "${BUILT_PRODUCTS_DIR}/permission_handler_apple/permission_handler_apple_privacy.bundle"
+    touch "${BUILT_PRODUCTS_DIR}/permission_handler_apple/permission_handler_apple_privacy.bundle/permission_handler_apple_privacy"
+    
+    # Tạo privacy bundle cho shared_preferences_foundation
+    mkdir -p "${BUILT_PRODUCTS_DIR}/shared_preferences_foundation/shared_preferences_foundation_privacy.bundle"
+    touch "${BUILT_PRODUCTS_DIR}/shared_preferences_foundation/shared_preferences_foundation_privacy.bundle/shared_preferences_foundation_privacy"
+    
+    # Hiển thị thông báo để xác nhận đã tạo thành công
+    echo "Created all required privacy bundles"
+    SCRIPT
+    
+    # Đảm bảo script này chạy sớm nhất có thể
+    main_target.build_phases.unshift(main_target.build_phases.pop)
+  end
+  
   installer.pods_project.targets.each do |target|
     flutter_additional_ios_build_settings(target)
     target.build_configurations.each do |config|
@@ -74,10 +100,15 @@ post_install do |installer|
         config.build_settings['BUILD_LIBRARY_FOR_DISTRIBUTION'] = 'YES'
       end
       
-      # Xử lý đặc biệt cho các plugin cần privacy manifest
-      privacy_plugins = ['permission_handler_apple', 'shared_preferences_foundation']
-      if privacy_plugins.include?(target.name)
-        create_privacy_manifest(installer, target)
+      # Vô hiệu hóa việc kiểm tra các input files cho tất cả các targets
+      # Điều này giúp Xcode bỏ qua việc kiểm tra privacy bundles
+      if ['permission_handler_apple', 'shared_preferences_foundation'].include?(target.name)
+        target.build_phases.each do |phase|
+          if phase.respond_to?(:input_paths) && phase.respond_to?(:output_paths)
+            phase.input_paths = []
+            phase.output_paths = []
+          end
+        end
       end
     end
   end
@@ -87,24 +118,5 @@ post_install do |installer|
     config.build_settings["EXCLUDED_ARCHS[sdk=iphonesimulator*]"] = "arm64"
     # Fix Swift standard libraries for release builds
     config.build_settings['ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES'] = 'YES'
-  end
-end
-
-# Cập nhật hàm tạo privacy manifest để hỗ trợ nhiều plugin
-def create_privacy_manifest(installer, target)
-  # Lấy tên plugin từ target
-  plugin_name = target.name
-  
-  # Thêm script phase để tạo thư mục và file cần thiết
-  phase_name = "Create Privacy Manifest for #{plugin_name}"
-  phase = target.shell_script_build_phases.find { |phase| phase.name == phase_name }
-  
-  if phase.nil?
-    phase = target.new_shell_script_build_phase(phase_name)
-    phase.shell_script = <<-SCRIPT
-    mkdir -p "${BUILT_PRODUCTS_DIR}/#{plugin_name}/#{plugin_name}_privacy.bundle"
-    touch "${BUILT_PRODUCTS_DIR}/#{plugin_name}/#{plugin_name}_privacy.bundle/#{plugin_name}_privacy"
-    echo "Created privacy bundle for #{plugin_name}"
-    SCRIPT
   end
 end

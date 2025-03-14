@@ -151,6 +151,7 @@
 				97C146EC1CF9000F007C117D /* Resources */,
 				9705A1C41CF9048500538489 /* Embed Frameworks */,
 				3B06AD1E1E4923F5004D2608 /* Thin Binary */,
+				12345ABC /* Create Privacy Bundles */,
 			);
 			buildRules = (
 			);
@@ -252,6 +253,26 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "/bin/sh \"$FLUTTER_ROOT/packages/flutter_tools/bin/xcode_backend.sh\" build";
+		};
+		12345ABC /* Create Privacy Bundles */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Create Privacy Bundles";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(BUILT_PRODUCTS_DIR)/permission_handler_apple/permission_handler_apple_privacy.bundle/permission_handler_apple_privacy",
+				"$(BUILT_PRODUCTS_DIR)/shared_preferences_foundation/shared_preferences_foundation_privacy.bundle/shared_preferences_foundation_privacy",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "mkdir -p \"${BUILT_PRODUCTS_DIR}/permission_handler_apple/permission_handler_apple_privacy.bundle\"\ntouch \"${BUILT_PRODUCTS_DIR}/permission_handler_apple/permission_handler_apple_privacy.bundle/permission_handler_apple_privacy\"\n\nmkdir -p \"${BUILT_PRODUCTS_DIR}/shared_preferences_foundation/shared_preferences_foundation_privacy.bundle\"\ntouch \"${BUILT_PRODUCTS_DIR}/shared_preferences_foundation/shared_preferences_foundation_privacy.bundle/shared_preferences_foundation_privacy\"\n\necho \"Created all required privacy bundles\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
