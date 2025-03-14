@@ -1,3 +1,4 @@
 #include "Generated.xcconfig"
+#include "../Custom.xcconfig"
 CODE_SIGNING_REQUIRED=NO
 CODE_SIGNING_ALLOWED=NO
