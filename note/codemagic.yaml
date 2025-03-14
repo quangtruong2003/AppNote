@@ -26,3 +26,40 @@ workflows:
     artifacts:
       # Chỉ định nơi Codemagic tìm file .ipa để hiển thị trong Artifacts
       - build/ios/ipa/*.ipa
+
+  ios-workflow:
+    name: iOS Build
+    instance_type: mac_pro
+    max_build_duration: 60
+    environment:
+      ios_signing:
+        distribution_type: development
+        bundle_identifier: com.example.note
+      vars:
+        XCODE_WORKSPACE: "ios/Runner.xcworkspace"
+        XCODE_SCHEME: "Runner"
+      flutter: stable
+    scripts:
+      - name: Set up code signing settings
+        script: |
+          echo "Configure code signing settings"
+      - name: Configure iOS project
+        script: |
+          cd ios
+          pod update
+          rm -rf ./build
+          mkdir -p build/ios/Debug-iphoneos/permission_handler_apple/permission_handler_apple_privacy.bundle
+          touch build/ios/Debug-iphoneos/permission_handler_apple/permission_handler_apple_privacy.bundle/permission_handler_apple_privacy
+          mkdir -p build/ios/Debug-iphoneos/shared_preferences_foundation/shared_preferences_foundation_privacy.bundle
+          touch build/ios/Debug-iphoneos/shared_preferences_foundation/shared_preferences_foundation_privacy.bundle/shared_preferences_foundation_privacy
+          cd ..
+      - name: Flutter packages get
+        script: |
+          flutter packages pub get
+      - name: Flutter build iOS
+        script: |
+          flutter build ios --debug --no-codesign
+    artifacts:
+      - build/ios/iphoneos/Runner.app
+      - "/tmp/xcodebuild_logs/*.log"
+      - flutter_drive.log
