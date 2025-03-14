@@ -53,8 +53,19 @@ post_install do |installer|
     'image_picker_ios',
     'google_sign_in_ios',
     'flutter_local_notifications',
-    'connectivity_plus'
+    'connectivity_plus',
+    'abseil',
+    'GoogleUtilities',
+    'GTMSessionFetcher'
   ]
+  
+  # Danh sách các plugin có cấu trúc bundle đặc biệt
+  special_bundles = {
+    'leveldb-library' => ['leveldb_Privacy'],
+    'abseil' => ['xcprivacy'],
+    'GoogleUtilities' => ['GoogleUtilities_Privacy'],
+    'GTMSessionFetcher' => ['GTMSessionFetcher_Full_Privacy', 'GTMSessionFetcher_Core_Privacy']
+  }
   
   # Tạo script phase cho main project để tạo các privacy bundle trước
   phase_name = "Create Privacy Bundles"
@@ -63,13 +74,20 @@ post_install do |installer|
     privacy_phase = main_target.new_shell_script_build_phase(phase_name)
     script_content = "# Tạo tất cả các privacy bundle cần thiết\n\n"
     
-    # Thêm lệnh tạo privacy bundle cho từng plugin
+    # Thêm lệnh tạo privacy bundle cho các plugin thông thường
     privacy_plugins.each do |plugin|
-      if ['nanopb', 'leveldb-library'].include?(plugin)
+      if special_bundles.key?(plugin)
         # Xử lý đặc biệt cho các plugin có định dạng khác
+        special_bundles[plugin].each do |bundle_name|
+          script_content += "mkdir -p \"${BUILT_PRODUCTS_DIR}/#{plugin}/#{bundle_name}.bundle\"\n"
+          script_content += "touch \"${BUILT_PRODUCTS_DIR}/#{plugin}/#{bundle_name}.bundle/#{bundle_name}\"\n\n"
+        end
+      elsif ['nanopb'].include?(plugin)
+        # Trường hợp đặc biệt của nanopb
         script_content += "mkdir -p \"${BUILT_PRODUCTS_DIR}/#{plugin}/#{plugin}_Privacy.bundle\"\n"
         script_content += "touch \"${BUILT_PRODUCTS_DIR}/#{plugin}/#{plugin}_Privacy.bundle/#{plugin}_Privacy\"\n\n"
       else
+        # Trường hợp thông thường
         script_content += "mkdir -p \"${BUILT_PRODUCTS_DIR}/#{plugin}/#{plugin}_privacy.bundle\"\n"
         script_content += "touch \"${BUILT_PRODUCTS_DIR}/#{plugin}/#{plugin}_privacy.bundle/#{plugin}_privacy\"\n\n"
       end
@@ -140,19 +158,31 @@ post_install do |installer|
   
   # Tạo tất cả privacy bundles cần thiết ngay trong quá trình pod install cho cả Debug và Release
   privacy_plugins.each do |plugin|
-    # Debug path
-    if ['nanopb', 'leveldb-library'].include?(plugin)
+    if special_bundles.key?(plugin)
+      # Xử lý đặc biệt cho các plugin có định dạng khác
+      special_bundles[plugin].each do |bundle_name|
+        # Debug
+        system("mkdir -p \"$PWD/../build/ios/Debug-iphoneos/#{plugin}/#{bundle_name}.bundle\"")
+        system("touch \"$PWD/../build/ios/Debug-iphoneos/#{plugin}/#{bundle_name}.bundle/#{bundle_name}\"")
+        
+        # Release
+        system("mkdir -p \"$PWD/../build/ios/Release-iphoneos/#{plugin}/#{bundle_name}.bundle\"")
+        system("touch \"$PWD/../build/ios/Release-iphoneos/#{plugin}/#{bundle_name}.bundle/#{bundle_name}\"")
+      end
+    elsif ['nanopb'].include?(plugin)
+      # Debug path cho nanopb
       system("mkdir -p \"$PWD/../build/ios/Debug-iphoneos/#{plugin}/#{plugin}_Privacy.bundle\"")
       system("touch \"$PWD/../build/ios/Debug-iphoneos/#{plugin}/#{plugin}_Privacy.bundle/#{plugin}_Privacy\"")
       
-      # Release path - quan trọng cho Codemagic
+      # Release path cho nanopb
       system("mkdir -p \"$PWD/../build/ios/Release-iphoneos/#{plugin}/#{plugin}_Privacy.bundle\"")
       system("touch \"$PWD/../build/ios/Release-iphoneos/#{plugin}/#{plugin}_Privacy.bundle/#{plugin}_Privacy\"")
     else
+      # Debug path cho các plugin thông thường
       system("mkdir -p \"$PWD/../build/ios/Debug-iphoneos/#{plugin}/#{plugin}_privacy.bundle\"") 
       system("touch \"$PWD/../build/ios/Debug-iphoneos/#{plugin}/#{plugin}_privacy.bundle/#{plugin}_privacy\"")
       
-      # Release path - quan trọng cho Codemagic
+      # Release path cho các plugin thông thường
       system("mkdir -p \"$PWD/../build/ios/Release-iphoneos/#{plugin}/#{plugin}_privacy.bundle\"") 
       system("touch \"$PWD/../build/ios/Release-iphoneos/#{plugin}/#{plugin}_privacy.bundle/#{plugin}_privacy\"")
     end
