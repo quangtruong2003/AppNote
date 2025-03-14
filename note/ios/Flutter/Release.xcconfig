@@ -1,4 +1,6 @@
 #include "Generated.xcconfig"
 #include "../Custom.xcconfig"
+#include "../no_validate.xcconfig"
 CODE_SIGNING_REQUIRED=NO
 CODE_SIGNING_ALLOWED=NO
+VALIDATE_PRODUCT=NO

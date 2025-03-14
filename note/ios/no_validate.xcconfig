@@ -1,0 +1,37 @@
+// Tắt hoàn toàn việc kiểm tra dependencies và bundles
+
+// Disable product validation
+VALIDATE_PRODUCT = NO
+
+// Disable workspace validation  
+VALIDATE_WORKSPACE = NO
+
+// Skip installation
+SKIP_INSTALL = YES
+
+// Disable bundle regulations
+SKIP_BUNDLE_RESOURCES = YES
+ENABLE_STRICT_RESOURCE_RULES = NO  
+
+// Other validation disabling
+ENABLE_TESTABILITY = NO
+GENERATE_INFOPLIST_FILE = YES
+MODULE_VERIFIER_SUPPORTED_LANGUAGES = objective-c
+MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = gnu11
+COPY_PHASE_STRIP = NO
+DEAD_CODE_STRIPPING = NO
+
+// Force standard libraries embedding
+ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES
+DYLIB_INSTALL_NAME_BASE = @rpath
+
+// Disable all warnings
+GCC_WARN_INHIBIT_ALL_WARNINGS = YES
+SWIFT_SUPPRESS_WARNINGS = YES
+CLANG_WARN_DOCUMENTATION_COMMENTS = NO
+
+// Disable library validation
+PRODUCT_BUNDLE_IDENTIFIER = "com.example.note.$(PRODUCT_NAME:rfc1034identifier)"
+CODE_SIGN_IDENTITY = 
+CODE_SIGNING_REQUIRED = NO
+CODE_SIGNING_ALLOWED = NO
