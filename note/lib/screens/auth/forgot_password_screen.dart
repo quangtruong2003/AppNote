@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
+import '../../widgets/loading_button.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
@@ -53,63 +54,106 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Forgot Password')),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: _emailSent ? _buildSuccessMessage() : _buildResetForm(),
+      appBar: AppBar(
+        title: const Text('Quên mật khẩu'),
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        foregroundColor: colorScheme.onSurface,
+      ),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: _emailSent ? _buildSuccessMessage() : _buildResetForm(),
+        ),
       ),
     );
   }
 
   Widget _buildResetForm() {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Form(
       key: _formKey,
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text(
-            'Enter your email address and we\'ll send you a link to reset your password.',
+          const Icon(Icons.lock_reset_outlined, size: 80, color: Colors.blue),
+          const SizedBox(height: 32),
+          Text(
+            'Đặt lại mật khẩu',
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: colorScheme.primary,
+            ),
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 16),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
+          Text(
+            'Nhập địa chỉ email của bạn và chúng tôi sẽ gửi cho bạn một đường dẫn để đặt lại mật khẩu.',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 16, color: colorScheme.onSurfaceVariant),
+          ),
+          const SizedBox(height: 32),
           TextFormField(
             controller: _emailController,
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               labelText: 'Email',
-              border: OutlineInputBorder(),
+              hintText: 'example@email.com',
+              prefixIcon: const Icon(Icons.email_outlined),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(
+                  color: colorScheme.outline.withOpacity(0.5),
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: colorScheme.primary, width: 2),
+              ),
+              contentPadding: const EdgeInsets.symmetric(vertical: 16),
+              filled: true,
+              fillColor: colorScheme.surfaceVariant.withOpacity(0.1),
             ),
             keyboardType: TextInputType.emailAddress,
             validator: (value) {
               if (value == null || value.isEmpty) {
-                return 'Please enter your email';
+                return 'Vui lòng nhập email của bạn';
               }
               if (!RegExp(
                 r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
               ).hasMatch(value)) {
-                return 'Please enter a valid email';
+                return 'Vui lòng nhập email hợp lệ';
               }
               return null;
             },
           ),
           const SizedBox(height: 24),
-          _isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : ElevatedButton(
-                onPressed: _resetPassword,
-                style: ElevatedButton.styleFrom(
-                  minimumSize: const Size.fromHeight(50),
-                ),
-                child: const Text('Reset Password'),
-              ),
+          LoadingButton(
+            text: 'Đặt lại mật khẩu',
+            onPressed: _isLoading ? null : _resetPassword,
+            loading: _isLoading,
+          ),
           const SizedBox(height: 16),
-          TextButton(
+          OutlinedButton.icon(
             onPressed: () {
-              Navigator.pushNamed(context, '/login');
+              Navigator.pushReplacementNamed(context, '/login');
             },
-            child: const Text('Back to Login'),
+            icon: const Icon(Icons.arrow_back),
+            label: const Text('Quay lại đăng nhập'),
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size.fromHeight(50),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
           ),
         ],
       ),
@@ -117,30 +161,47 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   }
 
   Widget _buildSuccessMessage() {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        const Icon(Icons.check_circle_outline, color: Colors.green, size: 80),
-        const SizedBox(height: 24),
-        const Text(
-          'Password Reset Link Sent',
-          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.green.withOpacity(0.1),
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(
+            Icons.check_circle_outline,
+            color: Colors.green,
+            size: 80,
+          ),
+        ),
+        const SizedBox(height: 32),
+        Text(
+          'Đã gửi liên kết đặt lại mật khẩu',
+          style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+            color: colorScheme.primary,
+          ),
+          textAlign: TextAlign.center,
         ),
         const SizedBox(height: 16),
         Text(
-          'We\'ve sent a password reset link to ${_emailController.text}. Please check your email.',
+          'Chúng tôi đã gửi hướng dẫn đặt lại mật khẩu đến ${_emailController.text}. Vui lòng kiểm tra email của bạn.',
           textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 16),
+          style: TextStyle(fontSize: 16, color: colorScheme.onSurfaceVariant),
         ),
-        const SizedBox(height: 24),
-        ElevatedButton(
+        const SizedBox(height: 32),
+        LoadingButton(
+          text: 'Quay lại đăng nhập',
           onPressed: () {
-            Navigator.pushNamed(context, '/login');
+            Navigator.pushReplacementNamed(context, '/login');
           },
-          style: ElevatedButton.styleFrom(
-            minimumSize: const Size.fromHeight(50),
-          ),
-          child: const Text('Back to Login'),
+          icon: Icons.login_outlined,
+          loading: false,
         ),
       ],
     );

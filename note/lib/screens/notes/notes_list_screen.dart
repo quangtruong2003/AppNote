@@ -28,21 +28,30 @@ class _NotesListScreenState extends State<NotesListScreen> {
       onWillPop: () => Routes.onWillPop(context),
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('My Notes'),
-          automaticallyImplyLeading: false, // Loại bỏ nút back
+          title: Text(
+            'Ghi chú của tôi',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 22),
+          ),
+          elevation: 0,
+          backgroundColor: Theme.of(context).colorScheme.surface,
+          foregroundColor: Theme.of(context).colorScheme.onSurface,
+          automaticallyImplyLeading: false,
           actions: [
             IconButton(
-              icon: const Icon(Icons.star),
+              icon: const Icon(Icons.star_outline),
+              tooltip: 'Phiên bản Premium',
               onPressed: () {
                 Navigator.pushNamed(context, '/premium');
               },
             ),
             IconButton(
-              icon: const Icon(Icons.search),
+              icon: Icon(_isSearchVisible ? Icons.search_off : Icons.search),
+              tooltip: 'Tìm kiếm',
               onPressed: _toggleSearch,
             ),
             IconButton(
-              icon: const Icon(Icons.person),
+              icon: const Icon(Icons.person_outline),
+              tooltip: 'Hồ sơ',
               onPressed: () {
                 Navigator.pushNamed(context, '/profile');
               },
@@ -50,11 +59,13 @@ class _NotesListScreenState extends State<NotesListScreen> {
           ],
         ),
         body: NotesListBody(isSearchVisible: _isSearchVisible),
-        floatingActionButton: FloatingActionButton(
+        floatingActionButton: FloatingActionButton.extended(
           onPressed: () {
             Navigator.pushNamed(context, '/note-detail');
           },
-          child: const Icon(Icons.add),
+          icon: const Icon(Icons.add),
+          label: const Text('Ghi chú mới'),
+          elevation: 4,
         ),
       ),
     );
@@ -176,10 +187,9 @@ class _NotesListBodyState extends State<NotesListBody> {
   Widget build(BuildContext context) {
     final noteProvider = Provider.of<NoteProvider>(context);
     List<Note> filteredNotes = noteProvider.notes;
+    final theme = Theme.of(context);
 
-    // Debug print to verify notes are loaded
-    print('Loaded ${noteProvider.notes.length} notes');
-
+    // Filter notes based on search query
     if (_searchQuery.isNotEmpty) {
       filteredNotes =
           filteredNotes
@@ -198,149 +208,294 @@ class _NotesListBodyState extends State<NotesListBody> {
     return Column(
       children: [
         if (widget.isSearchVisible)
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                labelText: 'Search Notes',
-                prefixIcon: const Icon(Icons.search),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10.0),
-                ),
-                suffixIcon:
-                    _searchQuery.isNotEmpty
-                        ? IconButton(
-                          icon: const Icon(Icons.clear),
-                          onPressed: () {
-                            _searchController.clear();
-                          },
-                        )
-                        : null,
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            height: widget.isSearchVisible ? 80 : 0,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16.0,
+                vertical: 8.0,
               ),
-              autofocus: true,
+              child: TextField(
+                controller: _searchController,
+                decoration: InputDecoration(
+                  labelText: 'Tìm kiếm ghi chú',
+                  prefixIcon: const Icon(Icons.search),
+                  filled: true,
+                  fillColor: theme.colorScheme.surfaceVariant.withOpacity(0.3),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16.0),
+                    borderSide: BorderSide.none,
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(vertical: 12.0),
+                  suffixIcon:
+                      _searchQuery.isNotEmpty
+                          ? IconButton(
+                            icon: const Icon(Icons.clear),
+                            onPressed: () {
+                              _searchController.clear();
+                            },
+                          )
+                          : null,
+                ),
+                autofocus: true,
+                style: TextStyle(fontSize: 16),
+              ),
             ),
           ),
         Expanded(
           child:
               _isLoading
-                  ? const Center(child: CircularProgressIndicator())
+                  ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        CircularProgressIndicator(
+                          color: theme.colorScheme.primary,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Đang tải ghi chú...',
+                          style: TextStyle(
+                            color: theme.colorScheme.onSurface.withOpacity(0.7),
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
                   : filteredNotes.isEmpty
                   ? Center(
-                    child: Text(
-                      _searchQuery.isNotEmpty
-                          ? 'No notes found matching "${_searchQuery}"'
-                          : 'No notes yet. Create one!',
-                      style: const TextStyle(fontSize: 16),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          _searchQuery.isNotEmpty
+                              ? Icons.search_off
+                              : Icons.note_add,
+                          size: 80,
+                          color: theme.colorScheme.onSurface.withOpacity(0.3),
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          _searchQuery.isNotEmpty
+                              ? 'Không tìm thấy ghi chú nào\nphù hợp với "${_searchQuery}"'
+                              : 'Bạn chưa có ghi chú nào\nHãy tạo ghi chú mới!',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: theme.colorScheme.onSurface.withOpacity(0.7),
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        if (_searchQuery.isEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 24.0),
+                            child: ElevatedButton.icon(
+                              icon: const Icon(Icons.add),
+                              label: const Text('Tạo ghi chú'),
+                              onPressed: () {
+                                Navigator.pushNamed(context, '/note-detail');
+                              },
+                              style: ElevatedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 24,
+                                  vertical: 12,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
                   )
                   : RefreshIndicator(
                     onRefresh: _refreshNotes,
-                    child: ListView.builder(
-                      padding: const EdgeInsets.all(8.0),
-                      itemCount: filteredNotes.length,
-                      itemBuilder: (context, index) {
-                        final note = filteredNotes[index];
-                        print('Displaying note: ${note.id} - ${note.title}');
-                        // Replace NoteCard with custom card implementation
-                        return Card(
-                          elevation: 2,
-                          margin: const EdgeInsets.symmetric(vertical: 5),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: InkWell(
-                            onTap: () {
-                              print(
-                                'Tapped on note: ${note.id} - ${note.title}',
-                              );
-                              Navigator.pushNamed(
-                                context,
-                                '/note-detail',
-                                arguments: note,
-                              );
-                            },
-                            borderRadius: BorderRadius.circular(10),
-                            child: Padding(
-                              padding: const EdgeInsets.all(16.0),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      if (note.isPinned)
-                                        const Padding(
-                                          padding: EdgeInsets.only(right: 8),
-                                          child: Icon(Icons.push_pin, size: 16),
-                                        ),
-                                      Expanded(
-                                        child: Text(
-                                          note.title,
-                                          style: const TextStyle(
-                                            fontSize: 18,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      if (note.reminderDateTime != null)
-                                        Row(
-                                          children: [
-                                            const Icon(
-                                              Icons.notifications,
+                    color: theme.colorScheme.primary,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                      child: GridView.builder(
+                        padding: const EdgeInsets.only(top: 12.0, bottom: 80.0),
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          childAspectRatio: 0.9,
+                          crossAxisSpacing: 10,
+                          mainAxisSpacing: 10,
+                        ),
+                        itemCount: filteredNotes.length,
+                        itemBuilder: (context, index) {
+                          final note = filteredNotes[index];
+                          final bool hasReminder =
+                              note.reminderDateTime != null;
+
+                          // Chọn màu ngẫu nhiên cho ghi chú từ bảng màu pastel
+                          final List<Color> noteColors = [
+                            Color(0xFFF8FAFF), // Trắng xanh nhạt
+                            Color(0xFFFFF8E1), // Vàng nhạt
+                            Color(0xFFF1F8E9), // Xanh lá nhạt
+                            Color(0xFFE8F5E9), // Xanh lục nhạt
+                            Color(0xFFE3F2FD), // Xanh dương nhạt
+                            Color(0xFFF3E5F5), // Tím nhạt
+                            Color(0xFFFFEBEE), // Hồng nhạt
+                            Color(0xFFFFF3E0), // Cam nhạt
+                          ];
+
+                          final cardColor =
+                              noteColors[index % noteColors.length];
+
+                          return Card(
+                            elevation: 2,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              side:
+                                  note.isPinned
+                                      ? BorderSide(
+                                        color: theme.colorScheme.primary,
+                                        width: 2,
+                                      )
+                                      : BorderSide.none,
+                            ),
+                            color: cardColor,
+                            child: InkWell(
+                              onTap: () {
+                                Navigator.pushNamed(
+                                  context,
+                                  '/note-detail',
+                                  arguments: note,
+                                );
+                              },
+                              borderRadius: BorderRadius.circular(16),
+                              child: Padding(
+                                padding: const EdgeInsets.all(16.0),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        if (note.isPinned)
+                                          const Padding(
+                                            padding: EdgeInsets.only(right: 8),
+                                            child: Icon(
+                                              Icons.push_pin,
                                               size: 16,
+                                              color: Colors.redAccent,
                                             ),
-                                            const SizedBox(width: 4),
-                                            Text(
-                                              note.reminderDateTime!
-                                                  .toString()
-                                                  .substring(0, 16),
-                                              style: TextStyle(
-                                                fontSize: 12,
-                                                color:
-                                                    Theme.of(context)
-                                                        .colorScheme
-                                                        .onSurfaceVariant,
-                                              ),
+                                          ),
+                                        Expanded(
+                                          child: Text(
+                                            note.title,
+                                            style: TextStyle(
+                                              fontSize: 17,
+                                              fontWeight: FontWeight.bold,
+                                              color:
+                                                  theme.colorScheme.onSurface,
                                             ),
-                                          ],
-                                        ),
-                                      Expanded(
-                                        child: Text(
-                                          note.updatedAt.toString().substring(
-                                            0,
-                                            16,
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
                                           ),
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            color:
-                                                Theme.of(
-                                                  context,
-                                                ).colorScheme.onSurfaceVariant,
-                                          ),
-                                          textAlign: TextAlign.right,
                                         ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Expanded(
+                                      child: Text(
+                                        note.content,
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          color: theme.colorScheme.onSurface
+                                              .withOpacity(0.8),
+                                        ),
+                                        maxLines: 4,
+                                        overflow: TextOverflow.ellipsis,
                                       ),
-                                    ],
-                                  ),
-                                ],
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        if (hasReminder)
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 6,
+                                              vertical: 2,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color:
+                                                  theme
+                                                      .colorScheme
+                                                      .primaryContainer,
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                            ),
+                                            child: Row(
+                                              children: [
+                                                const Icon(
+                                                  Icons.notifications,
+                                                  size: 12,
+                                                  color: Colors.deepPurple,
+                                                ),
+                                                const SizedBox(width: 4),
+                                                Text(
+                                                  note.reminderDateTime!
+                                                      .toString()
+                                                      .substring(0, 16),
+                                                  style: TextStyle(
+                                                    fontSize: 10,
+                                                    fontWeight: FontWeight.w500,
+                                                    color:
+                                                        theme
+                                                            .colorScheme
+                                                            .onPrimaryContainer,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        Flexible(
+                                          child: Container(
+                                            alignment: Alignment.centerRight,
+                                            child: Text(
+                                              _formatDate(note.updatedAt),
+                                              style: TextStyle(
+                                                fontSize: 10,
+                                                color: theme
+                                                    .colorScheme
+                                                    .onSurface
+                                                    .withOpacity(0.6),
+                                              ),
+                                              textAlign: TextAlign.right,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
-                          ),
-                        );
-                      },
+                          );
+                        },
+                      ),
                     ),
                   ),
         ),
       ],
     );
+  }
+
+  String _formatDate(DateTime date) {
+    final now = DateTime.now();
+    final difference = now.difference(date);
+
+    if (difference.inMinutes < 1) {
+      return 'Vừa xong';
+    } else if (difference.inHours < 1) {
+      return '${difference.inMinutes} phút trước';
+    } else if (difference.inDays < 1) {
+      return '${difference.inHours} giờ trước';
+    } else if (difference.inDays < 7) {
+      return '${difference.inDays} ngày trước';
+    } else {
+      return '${date.day}/${date.month}/${date.year}';
+    }
   }
 }

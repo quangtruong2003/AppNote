@@ -10,6 +10,7 @@ class Note {
   final DateTime updatedAt;
   final bool isPinned;
   final DateTime? reminderDateTime;
+  final int? color;
 
   Note({
     String? id,
@@ -20,6 +21,7 @@ class Note {
     DateTime? updatedAt,
     this.isPinned = false,
     this.reminderDateTime,
+    this.color,
   }) : id = id ?? const Uuid().v4(),
        createdAt = createdAt ?? DateTime.now(),
        updatedAt = updatedAt ?? DateTime.now();
@@ -33,6 +35,7 @@ class Note {
     DateTime? updatedAt,
     bool? isPinned,
     DateTime? reminderDateTime,
+    int? color,
     bool removeReminder = false,
   }) {
     return Note(
@@ -45,6 +48,7 @@ class Note {
       isPinned: isPinned ?? this.isPinned,
       reminderDateTime:
           removeReminder ? null : (reminderDateTime ?? this.reminderDateTime),
+      color: color ?? this.color,
     );
   }
 
@@ -58,6 +62,7 @@ class Note {
       'updatedAt': updatedAt,
       'isPinned': isPinned,
       'reminderDateTime': reminderDateTime,
+      'color': color,
     };
   }
 
@@ -82,6 +87,7 @@ class Note {
                   ? (map['reminderDateTime'] as Timestamp).toDate()
                   : DateTime.parse(map['reminderDateTime'].toString()))
               : null,
+      color: map['color'],
     );
   }
 
@@ -98,6 +104,7 @@ class Note {
           json['reminderDateTime'] != null
               ? DateTime.parse(json['reminderDateTime'])
               : null,
+      color: json['color'],
     );
   }
 
@@ -111,6 +118,7 @@ class Note {
       'updatedAt': updatedAt.toIso8601String(),
       'isPinned': isPinned,
       'reminderDateTime': reminderDateTime?.toIso8601String(),
+      'color': color,
     };
   }
 
@@ -136,6 +144,7 @@ class Note {
                   ? (data['reminderDateTime'] as Timestamp).toDate()
                   : null)
               : null,
+      color: data['color'],
     );
   }
 
@@ -151,6 +160,7 @@ class Note {
           reminderDateTime != null
               ? Timestamp.fromDate(reminderDateTime!)
               : null,
+      'color': color,
     };
   }
 

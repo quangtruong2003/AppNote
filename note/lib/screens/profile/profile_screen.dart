@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/theme_provider.dart';
+import '../../widgets/loading_button.dart';
 import 'edit_info_screen.dart';
 
 // Convert to StatefulWidget for better state management
@@ -32,210 +34,417 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
     final themeProvider = Provider.of<ThemeProvider>(context);
+    final colorScheme = Theme.of(context).colorScheme;
+    final brightness = Theme.of(context).brightness;
+
+    // Thiết lập màu sắc cho thanh trạng thái
+    SystemChrome.setSystemUIOverlayStyle(
+      SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness:
+            brightness == Brightness.light ? Brightness.dark : Brightness.light,
+        statusBarBrightness:
+            brightness == Brightness.dark ? Brightness.light : Brightness.dark,
+      ),
+    );
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Hồ sơ của tôi')),
+      appBar: AppBar(
+        title: const Text('Hồ sơ của tôi'),
+        elevation: 0,
+        backgroundColor:
+            brightness == Brightness.light
+                ? colorScheme.primary.withOpacity(
+                  0.05,
+                ) // Màu nền nhẹ nhàng khi ở chế độ sáng
+                : Colors.transparent,
+        foregroundColor: colorScheme.onSurface,
+        systemOverlayStyle: SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness:
+              brightness == Brightness.light
+                  ? Brightness.dark
+                  : Brightness.light,
+          statusBarBrightness:
+              brightness == Brightness.dark
+                  ? Brightness.light
+                  : Brightness.dark,
+        ),
+      ),
       body: RefreshIndicator(
         onRefresh: _refreshUserData,
+        color: colorScheme.primary,
         child: ListView(
-          padding: const EdgeInsets.all(16.0),
+          padding: const EdgeInsets.all(24.0),
           children: [
+            // Phần thông tin người dùng
             Container(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surface,
-                borderRadius: BorderRadius.circular(10),
+                color: colorScheme.surface,
+                borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
+                    color: colorScheme.shadow.withOpacity(0.1),
                     blurRadius: 10,
                     offset: const Offset(0, 2),
                   ),
                 ],
+                border: Border.all(color: colorScheme.outline.withOpacity(0.1)),
               ),
               child: Column(
                 children: [
-                  // Sử dụng Stack để đặt nút Edit lên trên mà không ảnh hưởng đến căn giữa của tên
+                  // Avatar và thông tin người dùng
                   Stack(
                     alignment: Alignment.center,
                     children: [
-                      // Phần hiển thị thông tin người dùng
-                      Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16.0,
-                          vertical: 8.0,
-                        ),
-                        child: Column(
-                          children: [
-                            Text(
-                              authProvider.user?.displayName ?? 'Người dùng',
-                              style: const TextStyle(
-                                fontSize: 24,
-                                fontWeight: FontWeight.bold,
+                      Column(
+                        children: [
+                          // Hiển thị avatar
+                          Container(
+                            width: 100,
+                            height: 100,
+                            decoration: BoxDecoration(
+                              color: colorScheme.primaryContainer,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: colorScheme.primary.withOpacity(0.2),
+                                width: 3,
                               ),
-                              textAlign: TextAlign.center,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: colorScheme.shadow.withOpacity(0.1),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
                             ),
-                            const SizedBox(height: 8),
-                            Text(
-                              authProvider.user?.email ?? 'Không có email',
-                              style: TextStyle(
-                                fontSize: 16,
-                                color:
-                                    Theme.of(
-                                      context,
-                                    ).colorScheme.onSurfaceVariant,
+                            child: Center(
+                              child: Text(
+                                authProvider.user?.displayName?.isNotEmpty ==
+                                        true
+                                    ? authProvider.user!.displayName![0]
+                                        .toUpperCase()
+                                    : authProvider.user?.email?.isNotEmpty ==
+                                        true
+                                    ? authProvider.user!.email![0].toUpperCase()
+                                    : 'U',
+                                style: TextStyle(
+                                  fontSize: 40,
+                                  color: colorScheme.primary,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
-                              textAlign: TextAlign.center,
                             ),
-                          ],
-                        ),
-                      ),
-                      // Nút Edit được đặt ở góc phải trên
-                      Positioned(
-                        top: 0,
-                        right: 0,
-                        child: IconButton(
-                          icon: const Icon(Icons.edit, size: 20),
-                          onPressed: () async {
-                            final result = await Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => const EditInfoScreen(),
+                          ),
+                          const SizedBox(height: 20),
+                          Text(
+                            authProvider.user?.displayName ?? 'Người dùng',
+                            style: TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                              color: colorScheme.onSurface,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            authProvider.user?.email ?? 'Không có email',
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 16),
+                          OutlinedButton.icon(
+                            onPressed: () async {
+                              final result = await Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const EditInfoScreen(),
+                                ),
+                              );
+                              if (mounted) {
+                                await _refreshUserData();
+                              }
+                            },
+                            icon: const Icon(Icons.edit_outlined, size: 18),
+                            label: const Text('Chỉnh sửa hồ sơ'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: colorScheme.primary,
+                              side: BorderSide(
+                                color: colorScheme.primary.withOpacity(0.5),
                               ),
-                            );
-
-                            // Refresh data when returning
-                            if (mounted) {
-                              await _refreshUserData();
-                            }
-                          },
-                          tooltip: 'Sửa tên',
-                        ),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 8,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 24),
-            const Padding(
-              padding: EdgeInsets.only(left: 16, bottom: 8),
+            const SizedBox(height: 32),
+
+            // Phần cài đặt
+            Padding(
+              padding: const EdgeInsets.only(left: 8, bottom: 12),
               child: Text(
-                'Settings',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-            ),
-            Card(
-              margin: const EdgeInsets.symmetric(vertical: 8),
-              child: ListTile(
-                leading: const Icon(Icons.dark_mode),
-                title: const Text('Dark Mode'),
-                trailing: Switch(
-                  value: themeProvider.isDarkMode,
-                  onChanged: (value) {
-                    themeProvider.toggleTheme();
-                  },
+                'Cài đặt ứng dụng',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: colorScheme.primary,
                 ),
               ),
             ),
-            Card(
-              margin: const EdgeInsets.symmetric(vertical: 8),
-              child: ListTile(
-                leading: const Icon(Icons.color_lens),
-                title: const Text('Theme Color'),
-                subtitle: const Text('Change the app accent color'),
-                onTap: () {
-                  _showColorPickerDialog(context, themeProvider);
+
+            // Card cho Dark Mode
+            _buildSettingCard(
+              context: context,
+              icon: Icons.dark_mode_outlined,
+              iconColor: Colors.indigo,
+              title: 'Chế độ tối',
+              subtitle: themeProvider.isDarkMode ? 'Đang bật' : 'Đang tắt',
+              trailing: Switch(
+                value: themeProvider.isDarkMode,
+                onChanged: (value) {
+                  themeProvider.toggleTheme();
                 },
+                activeColor: colorScheme.primary,
               ),
             ),
-            Card(
-              margin: const EdgeInsets.symmetric(vertical: 8),
-              child: ListTile(
-                leading: const Icon(Icons.notifications),
-                title: const Text('Notifications'),
-                subtitle: const Text('Manage notification settings'),
-                onTap: () {
-                  // Navigate to notification settings
-                },
+
+            // Card cho Theme Color
+            _buildSettingCard(
+              context: context,
+              icon: Icons.color_lens_outlined,
+              iconColor: Colors.deepPurple,
+              title: 'Màu chủ đề',
+              subtitle: 'Thay đổi màu chủ đạo của ứng dụng',
+              onTap: () {
+                _showColorPickerDialog(context, themeProvider);
+              },
+              trailing: Container(
+                width: 24,
+                height: 24,
+                decoration: BoxDecoration(
+                  color: themeProvider.primaryColor,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: themeProvider.primaryColor.withOpacity(0.4),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
               ),
             ),
-            Card(
-              margin: const EdgeInsets.symmetric(vertical: 8),
-              child: ListTile(
-                leading: const Icon(Icons.star),
-                title: const Text('Premium Features'),
-                subtitle: Text(
+
+            // Card cho Notifications
+            _buildSettingCard(
+              context: context,
+              icon: Icons.notifications_outlined,
+              iconColor: Colors.amber,
+              title: 'Thông báo',
+              subtitle: 'Quản lý cài đặt thông báo',
+              onTap: () {
+                // Navigate to notification settings
+              },
+            ),
+
+            // Card cho Premium Features
+            _buildSettingCard(
+              context: context,
+              icon: Icons.star_outline,
+              iconColor: Colors.orange,
+              title: 'Tính năng Premium',
+              subtitle:
                   authProvider.isPremium
-                      ? 'You are a Premium user'
-                      : 'Upgrade to Premium',
-                ),
-                trailing:
-                    authProvider.isPremium
-                        ? const Icon(Icons.check_circle, color: Colors.green)
-                        : null,
-                onTap: () {
-                  Navigator.pushNamed(context, '/premium');
-                },
-              ),
+                      ? 'Bạn đang sử dụng phiên bản Premium'
+                      : 'Nâng cấp lên Premium',
+              onTap: () {
+                Navigator.pushNamed(context, '/premium');
+              },
+              trailing:
+                  authProvider.isPremium
+                      ? Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.amber.shade100,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: const Text(
+                          'PREMIUM',
+                          style: TextStyle(
+                            color: Colors.amber,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        ),
+                      )
+                      : const Icon(Icons.arrow_forward_ios, size: 16),
             ),
-            const SizedBox(height: 24),
-            const Padding(
-              padding: EdgeInsets.only(left: 16, bottom: 8),
+
+            const SizedBox(height: 32),
+
+            // Phần tài khoản
+            Padding(
+              padding: const EdgeInsets.only(left: 8, bottom: 12),
               child: Text(
-                'Account',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-            ),
-            Card(
-              margin: const EdgeInsets.symmetric(vertical: 8),
-              child: ListTile(
-                leading: const Icon(Icons.lock),
-                title: const Text('Change Password'),
-                onTap: () {
-                  if (authProvider.isGoogleSignIn) {
-                    _showCannotChangePasswordDialog(context);
-                  } else {
-                    _showChangePasswordDialog(context, authProvider);
-                  }
-                },
-              ),
-            ),
-            Card(
-              margin: const EdgeInsets.symmetric(vertical: 8),
-              child: ListTile(
-                leading: const Icon(Icons.delete_forever, color: Colors.red),
-                title: const Text(
-                  'Delete Account',
-                  style: TextStyle(color: Colors.red),
+                'Tài khoản',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: colorScheme.primary,
                 ),
-                onTap: () {
-                  _showDeleteAccountDialog(context, authProvider);
-                },
               ),
             ),
-            const SizedBox(height: 24),
-            ElevatedButton.icon(
-              onPressed: () async {
-                await authProvider.signOut();
-                if (context.mounted) {
-                  Navigator.pushNamedAndRemoveUntil(
-                    context,
-                    '/login',
-                    (route) => false,
-                  );
+
+            // Card cho Change Password
+            _buildSettingCard(
+              context: context,
+              icon: Icons.lock_outline,
+              iconColor: Colors.blue,
+              title: 'Đổi mật khẩu',
+              subtitle:
+                  authProvider.isGoogleSignIn
+                      ? 'Không khả dụng với đăng nhập Google'
+                      : 'Thay đổi mật khẩu đăng nhập của bạn',
+              onTap: () {
+                if (authProvider.isGoogleSignIn) {
+                  _showCannotChangePasswordDialog(context);
+                } else {
+                  _showChangePasswordDialog(context, authProvider);
                 }
               },
+              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+            ),
+
+            // Card cho Delete Account
+            _buildSettingCard(
+              context: context,
+              icon: Icons.delete_outline,
+              iconColor: Colors.red,
+              title: 'Xóa tài khoản',
+              subtitle: 'Xóa tài khoản và tất cả dữ liệu của bạn',
+              onTap: () {
+                _showDeleteAccountDialog(context, authProvider);
+              },
+              isDestructive: true,
+            ),
+
+            const SizedBox(height: 32),
+
+            // Nút đăng xuất
+            ElevatedButton.icon(
+              onPressed: () {
+                _showLogoutDialog(context, authProvider);
+              },
               icon: const Icon(Icons.logout),
-              label: const Text('Sign Out'),
+              label: const Text('Đăng xuất'),
               style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red.withOpacity(0.1),
                 foregroundColor: Colors.red,
-                backgroundColor: Colors.red.withAlpha(25),
+                minimumSize: const Size.fromHeight(56),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
                 padding: const EdgeInsets.symmetric(vertical: 12),
               ),
             ),
+
+            const SizedBox(height: 24),
           ],
         ),
+      ),
+    );
+  }
+
+  // Widget tạo Setting Card có thiết kế đẹp và đồng nhất
+  Widget _buildSettingCard({
+    required BuildContext context,
+    required IconData icon,
+    required String title,
+    String? subtitle,
+    required Color iconColor,
+    VoidCallback? onTap,
+    Widget? trailing,
+    bool isDestructive = false,
+  }) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(
+          color:
+              isDestructive
+                  ? Colors.red.withOpacity(0.2)
+                  : colorScheme.outline.withOpacity(0.1),
+        ),
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+        leading: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color:
+                isDestructive
+                    ? Colors.red.withOpacity(0.1)
+                    : iconColor.withOpacity(0.1),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(
+            icon,
+            color: isDestructive ? Colors.red : iconColor,
+            size: 22,
+          ),
+        ),
+        title: Text(
+          title,
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            color: isDestructive ? Colors.red : null,
+          ),
+        ),
+        subtitle:
+            subtitle != null
+                ? Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color:
+                          isDestructive
+                              ? Colors.red.withOpacity(0.7)
+                              : colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                )
+                : null,
+        trailing:
+            trailing ??
+            (onTap != null
+                ? const Icon(Icons.arrow_forward_ios, size: 16)
+                : null),
+        onTap: onTap,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
   }
@@ -244,15 +453,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
     BuildContext context,
     ThemeProvider themeProvider,
   ) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text('Choose Theme Color'),
+          title: const Text('Chọn màu chủ đề'),
+          titleTextStyle: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: colorScheme.onSurface,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           content: SingleChildScrollView(
             child: Wrap(
-              spacing: 10,
-              runSpacing: 10,
+              spacing: 16,
+              runSpacing: 16,
+              alignment: WrapAlignment.center,
               children: [
                 _colorOption(context, Colors.blue, themeProvider),
                 _colorOption(context, Colors.purple, themeProvider),
@@ -269,9 +489,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
+              child: Text(
+                'Hủy bỏ',
+                style: TextStyle(
+                  color: colorScheme.primary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
           ],
+          backgroundColor: colorScheme.surface,
         );
       },
     );
@@ -289,9 +516,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
         themeProvider.setPrimaryColor(color);
         Navigator.pop(context);
       },
-      child: Container(
-        width: 50,
-        height: 50,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        width: 60,
+        height: 60,
         decoration: BoxDecoration(
           color: color,
           shape: BoxShape.circle,
@@ -307,7 +535,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ],
         ),
-        child: isSelected ? const Icon(Icons.check, color: Colors.white) : null,
+        child:
+            isSelected
+                ? const Icon(Icons.check, color: Colors.white, size: 30)
+                : null,
       ),
     );
   }
@@ -316,20 +547,37 @@ class _ProfileScreenState extends State<ProfileScreen> {
     BuildContext context,
     AuthProvider authProvider,
   ) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text('Delete Account'),
+          title: const Text('Xóa tài khoản'),
+          titleTextStyle: const TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: Colors.red,
+          ),
           content: const Text(
-            'Are you sure you want to delete your account? This action cannot be undone and all your data will be lost.',
+            'Bạn có chắc chắn muốn xóa tài khoản? Hành động này không thể hoàn tác và tất cả dữ liệu của bạn sẽ bị mất.',
+            style: TextStyle(fontSize: 16),
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
+              child: Text(
+                'Hủy bỏ',
+                style: TextStyle(
+                  color: colorScheme.primary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
-            TextButton(
+            ElevatedButton(
               onPressed: () async {
                 try {
                   await authProvider.deleteAccount();
@@ -343,13 +591,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 } catch (e) {
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Error: ${e.toString()}')),
+                      SnackBar(
+                        content: Text('Lỗi: ${e.toString()}'),
+                        backgroundColor: Colors.red,
+                      ),
                     );
+                    Navigator.pop(context);
                   }
                 }
               },
-              style: TextButton.styleFrom(foregroundColor: Colors.red),
-              child: const Text('Delete'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: const Text(
+                'Xóa tài khoản',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
             ),
           ],
         );
@@ -357,21 +618,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // Dialog for users who signed in with Google
   void _showCannotChangePasswordDialog(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text('Cannot Change Password'),
+          title: const Text('Không thể đổi mật khẩu'),
           content: const Text(
-            'You cannot change your password because you signed in with Google. '
-            'Please manage your Google account settings instead.',
+            'Bạn không thể thay đổi mật khẩu vì bạn đã đăng nhập bằng Google. '
+            'Vui lòng quản lý cài đặt tài khoản Google của bạn.',
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('OK'),
+              child: Text(
+                'Đã hiểu',
+                style: TextStyle(
+                  color: colorScheme.primary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
           ],
         );
@@ -379,7 +650,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // Dialog for changing password (email users)
   void _showChangePasswordDialog(
     BuildContext context,
     AuthProvider authProvider,
@@ -391,6 +661,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     bool isObscureOld = true;
     bool isObscureNew = true;
     bool isObscureConfirm = true;
+    bool isLoading = false;
+    final colorScheme = Theme.of(context).colorScheme;
 
     showDialog(
       context: context,
@@ -398,7 +670,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
         return StatefulBuilder(
           builder: (context, setState) {
             return AlertDialog(
-              title: const Text('Change Password'),
+              title: const Text('Đổi mật khẩu'),
+              titleTextStyle: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: colorScheme.onSurface,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
               content: Form(
                 key: formKey,
                 child: Column(
@@ -407,13 +687,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     TextFormField(
                       controller: oldPasswordController,
                       decoration: InputDecoration(
-                        labelText: 'Current Password',
-                        border: const OutlineInputBorder(),
+                        labelText: 'Mật khẩu hiện tại',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 16,
+                        ),
+                        prefixIcon: const Icon(Icons.lock_outline),
                         suffixIcon: IconButton(
                           icon: Icon(
                             isObscureOld
-                                ? Icons.visibility
-                                : Icons.visibility_off,
+                                ? Icons.visibility_outlined
+                                : Icons.visibility_off_outlined,
                           ),
                           onPressed:
                               () =>
@@ -423,7 +710,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       obscureText: isObscureOld,
                       validator: (value) {
                         if (value == null || value.isEmpty) {
-                          return 'Please enter your current password';
+                          return 'Vui lòng nhập mật khẩu hiện tại';
                         }
                         return null;
                       },
@@ -432,13 +719,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     TextFormField(
                       controller: newPasswordController,
                       decoration: InputDecoration(
-                        labelText: 'New Password',
-                        border: const OutlineInputBorder(),
+                        labelText: 'Mật khẩu mới',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 16,
+                        ),
+                        prefixIcon: const Icon(Icons.lock_outline),
                         suffixIcon: IconButton(
                           icon: Icon(
                             isObscureNew
-                                ? Icons.visibility
-                                : Icons.visibility_off,
+                                ? Icons.visibility_outlined
+                                : Icons.visibility_off_outlined,
                           ),
                           onPressed:
                               () =>
@@ -448,10 +742,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       obscureText: isObscureNew,
                       validator: (value) {
                         if (value == null || value.isEmpty) {
-                          return 'Please enter a new password';
+                          return 'Vui lòng nhập mật khẩu mới';
                         }
                         if (value.length < 6) {
-                          return 'Password must be at least 6 characters';
+                          return 'Mật khẩu phải có ít nhất 6 ký tự';
                         }
                         return null;
                       },
@@ -460,13 +754,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     TextFormField(
                       controller: confirmPasswordController,
                       decoration: InputDecoration(
-                        labelText: 'Confirm New Password',
-                        border: const OutlineInputBorder(),
+                        labelText: 'Xác nhận mật khẩu mới',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 16,
+                        ),
+                        prefixIcon: const Icon(Icons.lock_outline),
                         suffixIcon: IconButton(
                           icon: Icon(
                             isObscureConfirm
-                                ? Icons.visibility
-                                : Icons.visibility_off,
+                                ? Icons.visibility_outlined
+                                : Icons.visibility_off_outlined,
                           ),
                           onPressed:
                               () => setState(
@@ -477,10 +778,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       obscureText: isObscureConfirm,
                       validator: (value) {
                         if (value == null || value.isEmpty) {
-                          return 'Please confirm your new password';
+                          return 'Vui lòng xác nhận mật khẩu mới';
                         }
                         if (value != newPasswordController.text) {
-                          return 'Passwords do not match';
+                          return 'Mật khẩu không khớp';
                         }
                         return null;
                       },
@@ -490,39 +791,76 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
               actions: [
                 TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Cancel'),
+                  onPressed: isLoading ? null : () => Navigator.pop(context),
+                  child: Text(
+                    'Hủy bỏ',
+                    style: TextStyle(
+                      color: colorScheme.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
-                TextButton(
-                  onPressed: () async {
-                    if (formKey.currentState!.validate()) {
-                      try {
-                        await authProvider.changePassword(
-                          oldPasswordController.text,
-                          newPasswordController.text,
-                        );
-                        if (context.mounted) {
-                          Navigator.pop(context);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Password changed successfully'),
-                              backgroundColor: Colors.green,
+                ElevatedButton(
+                  onPressed:
+                      isLoading
+                          ? null
+                          : () async {
+                            if (formKey.currentState!.validate()) {
+                              setState(() {
+                                isLoading = true;
+                              });
+                              try {
+                                await authProvider.changePassword(
+                                  oldPasswordController.text,
+                                  newPasswordController.text,
+                                );
+                                if (context.mounted) {
+                                  Navigator.pop(context);
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Đổi mật khẩu thành công'),
+                                      backgroundColor: Colors.green,
+                                    ),
+                                  );
+                                }
+                              } catch (e) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Lỗi: ${e.toString()}'),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                  setState(() {
+                                    isLoading = false;
+                                  });
+                                }
+                              }
+                            }
+                          },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: colorScheme.primary,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child:
+                      isLoading
+                          ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Colors.white,
+                              ),
                             ),
-                          );
-                        }
-                      } catch (e) {
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Error: ${e.toString()}'),
-                              backgroundColor: Colors.red,
-                            ),
-                          );
-                        }
-                      }
-                    }
-                  },
-                  child: const Text('Change Password'),
+                          )
+                          : const Text(
+                            'Đổi mật khẩu',
+                            style: TextStyle(fontWeight: FontWeight.w600),
+                          ),
                 ),
               ],
             );
@@ -532,23 +870,94 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // Tạo widget avatar dự phòng
-  Widget _buildFallbackAvatar(AuthProvider authProvider) {
-    return Container(
-      color: Theme.of(context).colorScheme.primary,
-      alignment: Alignment.center,
-      child: Text(
-        authProvider.user?.displayName?.isNotEmpty == true
-            ? authProvider.user!.displayName![0].toUpperCase()
-            : authProvider.user?.email?.isNotEmpty == true
-            ? authProvider.user!.email![0].toUpperCase()
-            : 'U',
-        style: const TextStyle(
-          fontSize: 40,
-          color: Colors.white,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
+  // Thêm phương thức hiển thị dialog xác nhận đăng xuất
+  void _showLogoutDialog(BuildContext context, AuthProvider authProvider) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Xác nhận đăng xuất'),
+          titleTextStyle: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: colorScheme.onSurface,
+          ),
+          content: const Text(
+            'Bạn có chắc chắn muốn đăng xuất khỏi tài khoản này?',
+            style: TextStyle(fontSize: 16),
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(
+                'Hủy bỏ',
+                style: TextStyle(
+                  color: colorScheme.primary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                Navigator.pop(context); // Đóng dialog
+
+                // Hiển thị loading indicator
+                showDialog(
+                  context: context,
+                  barrierDismissible: false,
+                  builder:
+                      (context) =>
+                          const Center(child: CircularProgressIndicator()),
+                );
+
+                try {
+                  await authProvider.signOut();
+                  if (context.mounted) {
+                    // Đóng loading indicator
+                    Navigator.pop(context);
+
+                    // Chuyển đến màn hình đăng nhập
+                    Navigator.pushNamedAndRemoveUntil(
+                      context,
+                      '/login',
+                      (route) => false,
+                    );
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    // Đóng loading indicator
+                    Navigator.pop(context);
+
+                    // Hiển thị thông báo lỗi
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Lỗi khi đăng xuất: ${e.toString()}'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: const Text(
+                'Đăng xuất',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }

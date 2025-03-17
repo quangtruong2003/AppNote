@@ -48,6 +48,7 @@ class NoteProvider extends ChangeNotifier {
     required String userId,
     DateTime? reminderDateTime,
     bool isPinned = false,
+    int? color,
   }) async {
     _setLoading(true);
 
@@ -58,6 +59,7 @@ class NoteProvider extends ChangeNotifier {
         content: content,
         isPinned: isPinned,
         reminderDateTime: reminderDateTime,
+        color: color,
       );
 
       final createdNote = await _noteService.addNote(newNote);
