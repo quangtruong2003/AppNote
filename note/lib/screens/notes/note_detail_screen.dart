@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../models/note.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/note_provider.dart';
+import '../../utils/markdown_converter.dart';
 
 class NoteDetailScreen extends StatefulWidget {
   const NoteDetailScreen({super.key});
@@ -143,10 +144,12 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
       return;
     }
 
-    // Đặt trạng thái đang lưu
-    setState(() {
-      _isSaving = true;
-    });
+    // Đặt trạng thái đang lưu chỉ khi không phải là tự động lưu
+    if (showFeedback) {
+      setState(() {
+        _isSaving = true;
+      });
+    }
 
     try {
       final noteProvider = Provider.of<NoteProvider>(context, listen: false);
@@ -189,14 +192,21 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
       if (mounted) {
         setState(() {
           _isDirty = false;
-          _isSaving = false;
+          // Đặt _isSaving về false chỉ khi nó đã được đặt là true trước đó
+          if (showFeedback) {
+            _isSaving = false;
+          }
         });
       }
     } catch (e) {
       if (mounted) {
-        setState(() {
-          _isSaving = false;
-        });
+        // Đặt _isSaving về false chỉ khi nó đã được đặt là true trước đó
+        if (showFeedback) {
+          setState(() {
+            _isSaving = false;
+          });
+        }
+        
         if (showFeedback) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -281,481 +291,358 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
-      builder:
-          (context) => Container(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text(
-                  'Chọn màu ghi chú',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 16),
-                Wrap(
-                  spacing: 16,
-                  runSpacing: 16,
-                  children:
-                      _availableColors.map((color) {
-                        return GestureDetector(
-                          onTap: () {
-                            setState(() {
-                              _noteColor = color;
-                              _isDirty = true;
-                            });
-                            Navigator.pop(context);
-                            _autoSaveTimer?.cancel();
-                            _autoSaveTimer = Timer(
-                              const Duration(milliseconds: 500),
-                              _autoSave,
-                            );
-                          },
-                          child: Container(
-                            width: 50,
-                            height: 50,
-                            decoration: BoxDecoration(
-                              color: color,
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color:
-                                    color == _noteColor
-                                        ? Theme.of(context).colorScheme.primary
-                                        : Colors.grey,
-                                width: color == _noteColor ? 3 : 1,
-                              ),
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                ),
-              ],
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Chọn màu ghi chú',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
-          ),
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 16,
+              runSpacing: 16,
+              children: _availableColors.map((color) {
+                return GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _noteColor = color;
+                      _isDirty = true;
+                    });
+                    Navigator.pop(context);
+                    _autoSaveTimer?.cancel();
+                    _autoSaveTimer = Timer(
+                      const Duration(milliseconds: 500),
+                      _autoSave,
+                    );
+                  },
+                  child: Container(
+                    width: 50,
+                    height: 50,
+                    decoration: BoxDecoration(
+                      color: color,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: color == _noteColor
+                            ? Theme.of(context).colorScheme.primary
+                            : Colors.grey,
+                        width: color == _noteColor ? 3 : 1,
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
-  void _insertBulletPoint() {
-    final text = _contentController.text;
+  // Hàm định dạng cho văn bản - sử dụng MarkdownHelper
+  void _formatBold() {
     final selection = _contentController.selection;
-    final cursorPos = selection.baseOffset;
-
-    if (cursorPos >= 0) {
-      final beforeCursor = text.substring(0, cursorPos);
-      final afterCursor = text.substring(cursorPos);
-      final prefix =
-          beforeCursor.isEmpty || beforeCursor.endsWith('\n') ? '' : '\n';
-
-      final textToInsert = "$prefix• ";
-      final newText = beforeCursor + textToInsert + afterCursor;
-
+    if (selection.baseOffset != selection.extentOffset) {
+      final text = _contentController.text;
+      final newText = MarkdownHelper.applyBold(
+        text, 
+        selection.start, 
+        selection.end
+      );
+      
+      // Cập nhật văn bản và giữ vị trí con trỏ
       _contentController.value = TextEditingValue(
         text: newText,
-        selection: TextSelection.collapsed(
-          offset: cursorPos + textToInsert.length,
-        ),
+        selection: TextSelection.collapsed(offset: selection.end + 4), // +4 vì thêm **
       );
+    } else {
+      // Khi không có văn bản được chọn, thêm dấu ** và đặt con trỏ ở giữa
+      final cursorPos = selection.baseOffset;
+      
+      if (cursorPos >= 0) {
+        final beforeCursor = _contentController.text.substring(0, cursorPos);
+        final afterCursor = _contentController.text.substring(cursorPos);
+        
+        const textToInsert = "****";
+        final newText = beforeCursor + textToInsert + afterCursor;
+        
+        _contentController.value = TextEditingValue(
+          text: newText,
+          selection: TextSelection.collapsed(offset: cursorPos + 2),
+        );
+      }
+    }
+  }
+  
+  void _formatItalic() {
+    final selection = _contentController.selection;
+    if (selection.baseOffset != selection.extentOffset) {
+      final text = _contentController.text;
+      final newText = MarkdownHelper.applyItalic(
+        text, 
+        selection.start, 
+        selection.end
+      );
+      
+      // Cập nhật văn bản và giữ vị trí con trỏ
+      _contentController.value = TextEditingValue(
+        text: newText,
+        selection: TextSelection.collapsed(offset: selection.end + 2), // +2 vì thêm *
+      );
+    } else {
+      // Khi không có văn bản được chọn, thêm dấu * và đặt con trỏ ở giữa
+      final cursorPos = selection.baseOffset;
+      
+      if (cursorPos >= 0) {
+        final beforeCursor = _contentController.text.substring(0, cursorPos);
+        final afterCursor = _contentController.text.substring(cursorPos);
+        
+        const textToInsert = "**";
+        final newText = beforeCursor + textToInsert + afterCursor;
+        
+        _contentController.value = TextEditingValue(
+          text: newText,
+          selection: TextSelection.collapsed(offset: cursorPos + 1),
+        );
+      }
+    }
+  }
+  
+  void _insertStrikethrough() {
+    final selection = _contentController.selection;
+    if (selection.baseOffset != selection.extentOffset) {
+      final text = _contentController.text;
+      final newText = MarkdownHelper.applyStrikethrough(
+        text, 
+        selection.start, 
+        selection.end
+      );
+      
+      // Cập nhật văn bản và giữ vị trí con trỏ
+      _contentController.value = TextEditingValue(
+        text: newText,
+        selection: TextSelection.collapsed(offset: selection.end + 4), // +4 vì thêm ~~
+      );
+    } else {
+      // Khi không có văn bản được chọn, thêm dấu ~~ và đặt con trỏ ở giữa
+      final cursorPos = selection.baseOffset;
+      
+      if (cursorPos >= 0) {
+        final beforeCursor = _contentController.text.substring(0, cursorPos);
+        final afterCursor = _contentController.text.substring(cursorPos);
+        
+        const textToInsert = "~~~~";
+        final newText = beforeCursor + textToInsert + afterCursor;
+        
+        _contentController.value = TextEditingValue(
+          text: newText,
+          selection: TextSelection.collapsed(offset: cursorPos + 2),
+        );
+      }
+    }
+  }
+  
+  void _insertCodeBlock() {
+    final selection = _contentController.selection;
+    if (selection.baseOffset != selection.extentOffset) {
+      final text = _contentController.text;
+      final newText = MarkdownHelper.applyCodeBlock(
+        text, 
+        selection.start, 
+        selection.end
+      );
+      
+      // Cập nhật văn bản và giữ vị trí con trỏ
+      _contentController.value = TextEditingValue(
+        text: newText,
+        selection: TextSelection.collapsed(offset: selection.end + 2), // +2 vì thêm `
+      );
+    } else {
+      // Khi không có văn bản được chọn, thêm dấu ` và đặt con trỏ ở giữa
+      final cursorPos = selection.baseOffset;
+      
+      if (cursorPos >= 0) {
+        final beforeCursor = _contentController.text.substring(0, cursorPos);
+        final afterCursor = _contentController.text.substring(cursorPos);
+        
+        const textToInsert = "``";
+        final newText = beforeCursor + textToInsert + afterCursor;
+        
+        _contentController.value = TextEditingValue(
+          text: newText,
+          selection: TextSelection.collapsed(offset: cursorPos + 1),
+        );
+      }
+    }
+  }
+  
+  void _insertBulletPoint() {
+    final selection = _contentController.selection;
+    if (selection.baseOffset != selection.extentOffset) {
+      final text = _contentController.text;
+      final newText = MarkdownHelper.applyBulletList(
+        text, 
+        selection.start, 
+        selection.end
+      );
+      
+      // Cập nhật văn bản
+      _contentController.value = TextEditingValue(
+        text: newText,
+        selection: TextSelection.collapsed(offset: selection.end),
+      );
+    } else {
+      // Chèn đầu dòng mới
+      final text = _contentController.text;
+      final selection = _contentController.selection;
+      final cursorPos = selection.baseOffset;
+      
+      if (cursorPos >= 0) {
+        final beforeCursor = text.substring(0, cursorPos);
+        final afterCursor = text.substring(cursorPos);
+        final prefix = beforeCursor.isEmpty || beforeCursor.endsWith('\n') ? '' : '\n';
+        
+        final textToInsert = "$prefix* ";
+        final newText = beforeCursor + textToInsert + afterCursor;
+        
+        _contentController.value = TextEditingValue(
+          text: newText,
+          selection: TextSelection.collapsed(
+            offset: cursorPos + textToInsert.length,
+          ),
+        );
+      }
     }
   }
 
   void _insertNumberedPoint() {
-    final text = _contentController.text;
     final selection = _contentController.selection;
-    final cursorPos = selection.baseOffset;
-
-    if (cursorPos >= 0) {
-      final beforeCursor = text.substring(0, cursorPos);
-      final afterCursor = text.substring(cursorPos);
-      final prefix =
-          beforeCursor.isEmpty || beforeCursor.endsWith('\n') ? '' : '\n';
-
-      final lines = beforeCursor.split('\n');
-      final lineCount = lines.length;
-      final textToInsert = "${prefix}${lineCount + 1}. ";
-      final newText = beforeCursor + textToInsert + afterCursor;
-
+    if (selection.baseOffset != selection.extentOffset) {
+      final text = _contentController.text;
+      final newText = MarkdownHelper.applyNumberedList(
+        text, 
+        selection.start, 
+        selection.end
+      );
+      
+      // Cập nhật văn bản
       _contentController.value = TextEditingValue(
         text: newText,
-        selection: TextSelection.collapsed(
-          offset: cursorPos + textToInsert.length,
-        ),
+        selection: TextSelection.collapsed(offset: selection.end),
       );
-    }
-  }
-
-  void _insertQuote() {
-    final text = _contentController.text;
-    final selection = _contentController.selection;
-    final cursorPos = selection.baseOffset;
-
-    if (cursorPos >= 0) {
-      final beforeCursor = text.substring(0, cursorPos);
-      final afterCursor = text.substring(cursorPos);
-      final prefix =
-          beforeCursor.isEmpty || beforeCursor.endsWith('\n') ? '' : '\n';
-
-      final textToInsert = "$prefix> ";
-      final newText = beforeCursor + textToInsert + afterCursor;
-
-      _contentController.value = TextEditingValue(
-        text: newText,
-        selection: TextSelection.collapsed(
-          offset: cursorPos + textToInsert.length,
-        ),
-      );
+    } else {
+      // Chèn đầu dòng mới đánh số
+      final text = _contentController.text;
+      final selection = _contentController.selection;
+      final cursorPos = selection.baseOffset;
+      
+      if (cursorPos >= 0) {
+        final beforeCursor = text.substring(0, cursorPos);
+        final afterCursor = text.substring(cursorPos);
+        final prefix = beforeCursor.isEmpty || beforeCursor.endsWith('\n') ? '' : '\n';
+        
+        // Tìm số cho dòng tiếp theo
+        int number = 1;
+        if (prefix.isEmpty && beforeCursor.isNotEmpty) {
+          final lines = beforeCursor.split('\n');
+          final lastLine = lines.last;
+          final match = RegExp(r'^(\d+)\.\s').firstMatch(lastLine);
+          if (match != null) {
+            number = int.parse(match.group(1)!) + 1;
+          }
+        }
+        
+        final textToInsert = "$prefix$number. ";
+        final newText = beforeCursor + textToInsert + afterCursor;
+        
+        _contentController.value = TextEditingValue(
+          text: newText,
+          selection: TextSelection.collapsed(
+            offset: cursorPos + textToInsert.length,
+          ),
+        );
+      }
     }
   }
 
   void _insertHeading() {
-    final text = _contentController.text;
     final selection = _contentController.selection;
-    final cursorPos = selection.baseOffset;
-
-    if (cursorPos >= 0) {
-      final beforeCursor = text.substring(0, cursorPos);
-      final afterCursor = text.substring(cursorPos);
-      final prefix =
-          beforeCursor.isEmpty || beforeCursor.endsWith('\n') ? '' : '\n';
-
-      final textToInsert = "${prefix}# ";
-      final newText = beforeCursor + textToInsert + afterCursor;
-
+    if (selection.baseOffset != selection.extentOffset) {
+      final text = _contentController.text;
+      final newText = MarkdownHelper.applyHeading(
+        text, 
+        selection.start, 
+        selection.end
+      );
+      
+      // Cập nhật văn bản
       _contentController.value = TextEditingValue(
         text: newText,
-        selection: TextSelection.collapsed(
-          offset: cursorPos + textToInsert.length,
-        ),
+        selection: TextSelection.collapsed(offset: selection.end),
       );
+    } else {
+      // Chèn tiêu đề mới
+      final text = _contentController.text;
+      final selection = _contentController.selection;
+      final cursorPos = selection.baseOffset;
+      
+      if (cursorPos >= 0) {
+        final beforeCursor = text.substring(0, cursorPos);
+        final afterCursor = text.substring(cursorPos);
+        final prefix = beforeCursor.isEmpty || beforeCursor.endsWith('\n') ? '' : '\n';
+        
+        final textToInsert = "${prefix}# ";
+        final newText = beforeCursor + textToInsert + afterCursor;
+        
+        _contentController.value = TextEditingValue(
+          text: newText,
+          selection: TextSelection.collapsed(
+            offset: cursorPos + textToInsert.length,
+          ),
+        );
+      }
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    if (!_isInitialized) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+  void _insertQuote() {
+    final selection = _contentController.selection;
+    if (selection.baseOffset != selection.extentOffset) {
+      final text = _contentController.text;
+      final newText = MarkdownHelper.applyQuote(
+        text, 
+        selection.start, 
+        selection.end
+      );
+      
+      // Cập nhật văn bản
+      _contentController.value = TextEditingValue(
+        text: newText,
+        selection: TextSelection.collapsed(offset: selection.end),
+      );
+    } else {
+      // Chèn trích dẫn mới
+      final text = _contentController.text;
+      final selection = _contentController.selection;
+      final cursorPos = selection.baseOffset;
+      
+      if (cursorPos >= 0) {
+        final beforeCursor = text.substring(0, cursorPos);
+        final afterCursor = text.substring(cursorPos);
+        final prefix = beforeCursor.isEmpty || beforeCursor.endsWith('\n') ? '' : '\n';
+        
+        final textToInsert = "$prefix> ";
+        final newText = beforeCursor + textToInsert + afterCursor;
+        
+        _contentController.value = TextEditingValue(
+          text: newText,
+          selection: TextSelection.collapsed(
+            offset: cursorPos + textToInsert.length,
+          ),
+        );
+      }
     }
-
-    return PopScope(
-      canPop: true, // Luôn cho phép quay lại vì chúng ta tự động lưu
-      onPopInvokedWithResult: (didPop, result) async {
-        if (didPop) return;
-        final shouldPop = await _onWillPop();
-        if (shouldPop && context.mounted) {
-          Navigator.of(context).pop();
-        }
-      },
-      child: Theme(
-        data: Theme.of(context).copyWith(scaffoldBackgroundColor: _noteColor),
-        child: Scaffold(
-          appBar: AppBar(
-            backgroundColor: _noteColor,
-            elevation: 0,
-            title: Text(_note == null ? 'Ghi chú mới' : 'Chỉnh sửa ghi chú'),
-            leading: IconButton(
-              icon: const Icon(Icons.arrow_back),
-              tooltip: 'Quay lại',
-              onPressed: () async {
-                await _onWillPop();
-                if (mounted) Navigator.pop(context);
-              },
-            ),
-            actions: [
-              IconButton(
-                icon: Icon(
-                  _isPinned ? Icons.push_pin : Icons.push_pin_outlined,
-                ),
-                tooltip: 'Ghim ghi chú',
-                onPressed: _togglePinned,
-              ),
-              IconButton(
-                icon: Icon(
-                  _showFormatToolbar
-                      ? Icons.format_align_left
-                      : Icons.format_bold,
-                ),
-                tooltip: 'Định dạng văn bản',
-                onPressed: _toggleFormatToolbar,
-              ),
-              PopupMenuButton<String>(
-                icon: const Icon(Icons.more_vert),
-                tooltip: 'Tùy chọn khác',
-                onSelected: (value) {
-                  switch (value) {
-                    case 'color':
-                      _selectNoteColor();
-                      break;
-                    case 'share':
-                      _shareNote();
-                      break;
-                    case 'reminder':
-                      _selectReminderDateTime();
-                      break;
-                    case 'delete':
-                      _deleteNote();
-                      break;
-                  }
-                },
-                itemBuilder:
-                    (context) => [
-                      PopupMenuItem(
-                        value: 'color',
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.color_lens,
-                              color: Theme.of(context).colorScheme.primary,
-                            ),
-                            const SizedBox(width: 8),
-                            const Text('Đổi màu ghi chú'),
-                          ],
-                        ),
-                      ),
-                      PopupMenuItem(
-                        value: 'reminder',
-                        child: Row(
-                          children: [
-                            Icon(
-                              _reminderDateTime != null
-                                  ? Icons.notifications_active
-                                  : Icons.notifications_none,
-                              color: Theme.of(context).colorScheme.primary,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              _reminderDateTime != null
-                                  ? 'Thay đổi nhắc nhở'
-                                  : 'Đặt nhắc nhở',
-                            ),
-                          ],
-                        ),
-                      ),
-                      PopupMenuItem(
-                        value: 'share',
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.share,
-                              color: Theme.of(context).colorScheme.primary,
-                            ),
-                            const SizedBox(width: 8),
-                            const Text('Chia sẻ ghi chú'),
-                          ],
-                        ),
-                      ),
-                      if (_note != null)
-                        PopupMenuItem(
-                          value: 'delete',
-                          child: Row(
-                            children: [
-                              const Icon(Icons.delete, color: Colors.red),
-                              const SizedBox(width: 8),
-                              const Text(
-                                'Xóa ghi chú',
-                                style: TextStyle(color: Colors.red),
-                              ),
-                            ],
-                          ),
-                        ),
-                    ],
-              ),
-              if (_isSaving)
-                Container(
-                  width: 48,
-                  padding: const EdgeInsets.all(12),
-                  child: const CircularProgressIndicator(strokeWidth: 2),
-                )
-              else if (_showSavedIndicator)
-                Container(
-                  width: 48,
-                  padding: const EdgeInsets.all(12),
-                  child: const Icon(Icons.check, color: Colors.green),
-                ),
-            ],
-          ),
-          body: Stack(
-            children: [
-              Container(
-                color: _noteColor,
-                child: Column(
-                  children: [
-                    // Hiển thị nhắc nhở
-                    if (_reminderDateTime != null)
-                      Container(
-                        margin: const EdgeInsets.only(
-                          left: 16,
-                          right: 16,
-                          top: 8,
-                          bottom: 8,
-                        ),
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.primaryContainer,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.notifications_active,
-                              size: 20,
-                              color:
-                                  Theme.of(
-                                    context,
-                                  ).colorScheme.onPrimaryContainer,
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                'Nhắc nhở: ${_formatDateTime(_reminderDateTime!)}',
-                                style: TextStyle(
-                                  color:
-                                      Theme.of(
-                                        context,
-                                      ).colorScheme.onPrimaryContainer,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ),
-                            IconButton(
-                              icon: Icon(
-                                Icons.close,
-                                size: 18,
-                                color:
-                                    Theme.of(
-                                      context,
-                                    ).colorScheme.onPrimaryContainer,
-                              ),
-                              onPressed: () {
-                                setState(() {
-                                  _reminderDateTime = null;
-                                  _isDirty = true;
-                                });
-                                _autoSaveTimer?.cancel();
-                                _autoSaveTimer = Timer(
-                                  const Duration(milliseconds: 500),
-                                  _autoSave,
-                                );
-                              },
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                    // Thanh công cụ định dạng đơn giản
-                    if (_showFormatToolbar)
-                      AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        height: 50,
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.surface,
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withAlpha(26),
-                              blurRadius: 2,
-                              offset: const Offset(0, 1),
-                            ),
-                          ],
-                        ),
-                        child: SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8.0,
-                            ),
-                            child: Row(
-                              children: [
-                                IconButton(
-                                  icon: const Icon(Icons.format_list_bulleted),
-                                  tooltip: 'Danh sách',
-                                  onPressed: _insertBulletPoint,
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.format_list_numbered),
-                                  tooltip: 'Danh sách số',
-                                  onPressed: _insertNumberedPoint,
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.format_quote),
-                                  tooltip: 'Trích dẫn',
-                                  onPressed: _insertQuote,
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.title),
-                                  tooltip: 'Tiêu đề',
-                                  onPressed: _insertHeading,
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.color_lens),
-                                  tooltip: 'Màu ghi chú',
-                                  onPressed: _selectNoteColor,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-
-                    // Trình chỉnh sửa ghi chú
-                    Expanded(
-                      child: Container(
-                        color: _noteColor,
-                        padding: const EdgeInsets.all(16.0),
-                        child: Column(
-                          children: [
-                            // Tiêu đề
-                            TextField(
-                              controller: _titleController,
-                              style: const TextStyle(
-                                fontSize: 26,
-                                fontWeight: FontWeight.bold,
-                                height: 1.3,
-                              ),
-                              maxLines: null,
-                              decoration: const InputDecoration(
-                                hintText: 'Tiêu đề',
-                                border: InputBorder.none,
-                                contentPadding: EdgeInsets.zero,
-                              ),
-                              textCapitalization: TextCapitalization.sentences,
-                            ),
-                            const SizedBox(height: 16),
-
-                            // Nội dung
-                            Expanded(
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: TextField(
-                                  controller: _contentController,
-                                  scrollController: _scrollController,
-                                  focusNode: _focusNode,
-                                  maxLines: null,
-                                  expands: true,
-                                  style: const TextStyle(fontSize: 16),
-                                  decoration: const InputDecoration(
-                                    hintText:
-                                        'Nhập nội dung ghi chú của bạn...',
-                                    border: InputBorder.none,
-                                    contentPadding: EdgeInsets.zero,
-                                  ),
-                                  textCapitalization:
-                                      TextCapitalization.sentences,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 
   String _formatDateTime(DateTime dateTime) {
@@ -860,22 +747,21 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
   Future<void> _deleteNote() async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('Xóa ghi chú'),
-            content: const Text('Bạn có chắc chắn muốn xóa ghi chú này?'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('Hủy'),
-              ),
-              TextButton(
-                style: TextButton.styleFrom(foregroundColor: Colors.red),
-                onPressed: () => Navigator.of(context).pop(true),
-                child: const Text('Xóa'),
-              ),
-            ],
+      builder: (context) => AlertDialog(
+        title: const Text('Xóa ghi chú'),
+        content: const Text('Bạn có chắc chắn muốn xóa ghi chú này?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Hủy'),
           ),
+          TextButton(
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Xóa'),
+          ),
+        ],
+      ),
     );
 
     if (confirmed == true && _note != null) {
@@ -912,5 +798,344 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
         }
       }
     }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_isInitialized) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
+    return PopScope(
+      canPop: true, // Luôn cho phép quay lại vì chúng ta tự động lưu
+      onPopInvokedWithResult: (didPop, result) async {
+        if (!didPop) {
+          final shouldPop = await _onWillPop();
+          if (shouldPop && context.mounted) {
+            Navigator.of(context).pop();
+          }
+        }
+      },
+      child: Theme(
+        data: Theme.of(context).copyWith(scaffoldBackgroundColor: _noteColor),
+        child: Scaffold(
+          appBar: AppBar(
+            backgroundColor: _noteColor,
+            elevation: 0,
+            title: Text(_note == null ? 'Ghi chú mới' : 'Chỉnh sửa ghi chú'),
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back),
+              tooltip: 'Quay lại',
+              onPressed: () async {
+                await _onWillPop();
+                if (mounted) Navigator.pop(context);
+              },
+            ),
+            actions: [
+              IconButton(
+                icon: Icon(
+                  _isPinned ? Icons.push_pin : Icons.push_pin_outlined,
+                ),
+                tooltip: 'Ghim ghi chú',
+                onPressed: _togglePinned,
+              ),
+              IconButton(
+                icon: Icon(
+                  _showFormatToolbar
+                      ? Icons.format_align_left
+                      : Icons.format_bold,
+                ),
+                tooltip: 'Định dạng văn bản',
+                onPressed: _toggleFormatToolbar,
+              ),
+              PopupMenuButton<String>(
+                icon: const Icon(Icons.more_vert),
+                tooltip: 'Tùy chọn khác',
+                onSelected: (value) {
+                  switch (value) {
+                    case 'color':
+                      _selectNoteColor();
+                      break;
+                    case 'share':
+                      _shareNote();
+                      break;
+                    case 'reminder':
+                      _selectReminderDateTime();
+                      break;
+                    case 'delete':
+                      _deleteNote();
+                      break;
+                  }
+                },
+                itemBuilder: (context) => [
+                  PopupMenuItem(
+                    value: 'color',
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.color_lens,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                        const SizedBox(width: 8),
+                        const Text('Đổi màu ghi chú'),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 'reminder',
+                    child: Row(
+                      children: [
+                        Icon(
+                          _reminderDateTime != null
+                              ? Icons.notifications_active
+                              : Icons.notifications_none,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          _reminderDateTime != null
+                              ? 'Thay đổi nhắc nhở'
+                              : 'Đặt nhắc nhở',
+                        ),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 'share',
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.share,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                        const SizedBox(width: 8),
+                        const Text('Chia sẻ ghi chú'),
+                      ],
+                    ),
+                  ),
+                  if (_note != null)
+                    PopupMenuItem(
+                      value: 'delete',
+                      child: Row(
+                        children: [
+                          const Icon(Icons.delete, color: Colors.red),
+                          const SizedBox(width: 8),
+                          const Text(
+                            'Xóa ghi chú',
+                            style: TextStyle(color: Colors.red),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+              if (_isSaving)
+                Container(
+                  width: 48,
+                  padding: const EdgeInsets.all(12),
+                  child: const CircularProgressIndicator(strokeWidth: 2),
+                )
+              else if (_showSavedIndicator)
+                Container(
+                  width: 48,
+                  padding: const EdgeInsets.all(12),
+                  child: const Icon(Icons.check, color: Colors.green),
+                ),
+            ],
+          ),
+          body: Stack(
+            children: [
+              Container(
+                color: _noteColor,
+                child: Column(
+                  children: [
+                    // Hiển thị nhắc nhở
+                    if (_reminderDateTime != null)
+                      Container(
+                        margin: const EdgeInsets.only(
+                          left: 16,
+                          right: 16,
+                          top: 8,
+                          bottom: 8,
+                        ),
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.primaryContainer,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.notifications_active,
+                              size: 20,
+                              color: Theme.of(context).colorScheme.onPrimaryContainer,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Nhắc nhở: ${_formatDateTime(_reminderDateTime!)}',
+                                style: TextStyle(
+                                  color: Theme.of(context).colorScheme.onPrimaryContainer,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              icon: Icon(
+                                Icons.close,
+                                size: 18,
+                                color: Theme.of(context).colorScheme.onPrimaryContainer,
+                              ),
+                              onPressed: () {
+                                setState(() {
+                                  _reminderDateTime = null;
+                                  _isDirty = true;
+                                });
+                                _autoSaveTimer?.cancel();
+                                _autoSaveTimer = Timer(
+                                  const Duration(milliseconds: 500),
+                                  _autoSave,
+                                );
+                              },
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                    // Thanh công cụ định dạng đơn giản
+                    if (_showFormatToolbar)
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        height: 50,
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.surface,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withAlpha(26),
+                              blurRadius: 2,
+                              offset: const Offset(0, 1),
+                            ),
+                          ],
+                        ),
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8.0,
+                            ),
+                            child: Row(
+                              children: [
+                                IconButton(
+                                  icon: const Icon(Icons.format_bold),
+                                  tooltip: 'In đậm',
+                                  onPressed: _formatBold,
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.format_italic),
+                                  tooltip: 'In nghiêng',
+                                  onPressed: _formatItalic,
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.format_strikethrough),
+                                  tooltip: 'Gạch ngang',
+                                  onPressed: _insertStrikethrough,
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.code),
+                                  tooltip: 'Khối mã',
+                                  onPressed: _insertCodeBlock,
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.format_list_bulleted),
+                                  tooltip: 'Danh sách',
+                                  onPressed: _insertBulletPoint,
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.format_list_numbered),
+                                  tooltip: 'Danh sách số',
+                                  onPressed: _insertNumberedPoint,
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.format_quote),
+                                  tooltip: 'Trích dẫn',
+                                  onPressed: _insertQuote,
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.title),
+                                  tooltip: 'Tiêu đề',
+                                  onPressed: _insertHeading,
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.color_lens),
+                                  tooltip: 'Màu ghi chú',
+                                  onPressed: _selectNoteColor,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+
+                    // Trình chỉnh sửa ghi chú
+                    Expanded(
+                      child: Container(
+                        color: _noteColor,
+                        padding: const EdgeInsets.all(16.0),
+                        child: Column(
+                          children: [
+                            // Tiêu đề
+                            TextField(
+                              controller: _titleController,
+                              style: const TextStyle(
+                                fontSize: 26,
+                                fontWeight: FontWeight.bold,
+                                height: 1.3,
+                              ),
+                              maxLines: null,
+                              decoration: const InputDecoration(
+                                hintText: 'Tiêu đề',
+                                border: InputBorder.none,
+                                contentPadding: EdgeInsets.zero,
+                              ),
+                              textCapitalization: TextCapitalization.sentences,
+                            ),
+                            const SizedBox(height: 16),
+
+                            // Nội dung - sử dụng TextField thay vì QuillEditor
+                            Expanded(
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: TextField(
+                                  controller: _contentController,
+                                  scrollController: _scrollController,
+                                  focusNode: _focusNode,
+                                  maxLines: null,
+                                  expands: true,
+                                  style: const TextStyle(fontSize: 16),
+                                  decoration: const InputDecoration(
+                                    hintText: 'Nhập nội dung ghi chú của bạn...',
+                                    border: InputBorder.none,
+                                    contentPadding: EdgeInsets.zero,
+                                  ),
+                                  textCapitalization: TextCapitalization.sentences,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }

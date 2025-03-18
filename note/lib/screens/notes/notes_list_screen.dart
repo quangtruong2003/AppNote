@@ -183,26 +183,35 @@ class _NotesListBodyState extends State<NotesListBody> {
     }
   }
 
+  /// Hàm chuyển đổi chuỗi có dấu thành không dấu
+  String _removeDiacritics(String text) {
+    var withDiacritics = 'àáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđÀÁẢÃẠĂẰẮẲẴẶÂẦẤẨẪẬÈÉẺẼẸÊỀẾỂỄỆÌÍỈĨỊÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢÙÚỦŨỤƯỪỨỬỮỰỲÝỶỸỴĐ';
+    var withoutDiacritics = 'aaaaaaaaaaaaaaaaaeeeeeeeeeeeiiiiiooooooooooooooooouuuuuuuuuuuyyyyydAAAAAAAAAAAAAAAAAEEEEEEEEEEEIIIIIOOOOOOOOOOOOOOOOOUUUUUUUUUUUYYYYYD';
+
+    String result = text;
+    for (int i = 0; i < withDiacritics.length; i++) {
+      result = result.replaceAll(withDiacritics[i], withoutDiacritics[i]);
+    }
+    return result;
+  }
+
   @override
   Widget build(BuildContext context) {
     final noteProvider = Provider.of<NoteProvider>(context);
     List<Note> filteredNotes = noteProvider.notes;
     final theme = Theme.of(context);
 
-    // Filter notes based on search query
+    // Cải tiến filter notes để hỗ trợ tìm kiếm không dấu
     if (_searchQuery.isNotEmpty) {
-      filteredNotes =
-          filteredNotes
-              .where(
-                (note) =>
-                    note.title.toLowerCase().contains(
-                      _searchQuery.toLowerCase(),
-                    ) ||
-                    note.content.toLowerCase().contains(
-                      _searchQuery.toLowerCase(),
-                    ),
-              )
-              .toList();
+      String normalizedQuery = _removeDiacritics(_searchQuery.toLowerCase());
+      
+      filteredNotes = filteredNotes.where((note) {
+        String normalizedTitle = _removeDiacritics(note.title.toLowerCase());
+        String normalizedContent = _removeDiacritics(note.content.toLowerCase());
+        
+        return normalizedTitle.contains(normalizedQuery) || 
+               normalizedContent.contains(normalizedQuery);
+      }).toList();
     }
 
     return Column(
@@ -219,7 +228,7 @@ class _NotesListBodyState extends State<NotesListBody> {
               child: TextField(
                 controller: _searchController,
                 decoration: InputDecoration(
-                  labelText: 'Tìm kiếm ghi chú',
+                  //labelText: 'Tìm kiếm ghi chú',
                   prefixIcon: const Icon(Icons.search),
                   filled: true,
                   fillColor: theme.colorScheme.surfaceVariant.withOpacity(0.3),
