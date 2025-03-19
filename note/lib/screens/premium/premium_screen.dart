@@ -1242,18 +1242,36 @@ class _PremiumScreenState extends State<PremiumScreen> {
             Container(
               padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
               decoration: BoxDecoration(
-                color: Colors.grey.shade100,
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.grey.shade800
+                    : Colors.grey.shade100,
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.grey.shade300),
+                border: Border.all(
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? Colors.grey.shade700
+                      : Colors.grey.shade300,
+                ),
               ),
               child: Column(
                 children: [
                   _buildBankDetailRowImproved('Ngân hàng:', _bankName),
-                  const Divider(),
+                  Divider(
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? Colors.grey.shade700
+                        : Colors.grey.shade300,
+                  ),
                   _buildBankDetailRowImproved('Số TK:', _accountNumber),
-                  const Divider(),
+                  Divider(
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? Colors.grey.shade700
+                        : Colors.grey.shade300,
+                  ),
                   _buildBankDetailRowImproved('Chủ TK:', _accountName),
-                  const Divider(),
+                  Divider(
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? Colors.grey.shade700
+                        : Colors.grey.shade300,
+                  ),
                   _buildBankDetailRowImproved(
                     'Số tiền:',
                     NumberFormat.currency(
@@ -1262,7 +1280,11 @@ class _PremiumScreenState extends State<PremiumScreen> {
                       decimalDigits: 0,
                     ).format(_donationAmount),
                   ),
-                  const Divider(),
+                  Divider(
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? Colors.grey.shade700
+                        : Colors.grey.shade300,
+                  ),
                   _buildBankDetailRowImproved('Nội dung:', 'Donate NotesApp'),
                 ],
               ),
@@ -1444,14 +1466,17 @@ class _PremiumScreenState extends State<PremiumScreen> {
                       children: [
                         Text(
                           'Hướng dẫn sử dụng:',
-                          style: TextStyle(fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87,
+                          ),
                         ),
                         SizedBox(height: 8),
                         Text(
                           '1. Mở app ngân hàng hoặc ví điện tử\n'
                           '2. Quét mã QR hoặc chọn "Chuyển tiền qua mã QR"\n'
                           '3. Kiểm tra thông tin và xác nhận chuyển khoản',
-                          style: TextStyle(fontSize: 13),
+                          style: TextStyle(fontSize: 13, color: Colors.black87),
                         ),
                       ],
                     ),
@@ -1556,7 +1581,7 @@ class _PremiumScreenState extends State<PremiumScreen> {
                   const Text(
                     'Sự ủng hộ của bạn giúp chúng tôi tiếp tục phát triển và cải thiện ứng dụng.',
                     textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 14),
+                    style: TextStyle(fontSize: 14, color: Colors.redAccent),
                   ),
                 ],
               ),

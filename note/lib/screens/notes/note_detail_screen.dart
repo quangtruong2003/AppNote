@@ -206,7 +206,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
             _isSaving = false;
           });
         }
-        
+
         if (showFeedback) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -291,53 +291,56 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'Chọn màu ghi chú',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+      builder:
+          (context) => Container(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Chọn màu ghi chú',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 16),
+                Wrap(
+                  spacing: 16,
+                  runSpacing: 16,
+                  children:
+                      _availableColors.map((color) {
+                        return GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              _noteColor = color;
+                              _isDirty = true;
+                            });
+                            Navigator.pop(context);
+                            _autoSaveTimer?.cancel();
+                            _autoSaveTimer = Timer(
+                              const Duration(milliseconds: 500),
+                              _autoSave,
+                            );
+                          },
+                          child: Container(
+                            width: 50,
+                            height: 50,
+                            decoration: BoxDecoration(
+                              color: color,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color:
+                                    color == _noteColor
+                                        ? Theme.of(context).colorScheme.primary
+                                        : Colors.grey,
+                                width: color == _noteColor ? 3 : 1,
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                ),
+              ],
             ),
-            const SizedBox(height: 16),
-            Wrap(
-              spacing: 16,
-              runSpacing: 16,
-              children: _availableColors.map((color) {
-                return GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      _noteColor = color;
-                      _isDirty = true;
-                    });
-                    Navigator.pop(context);
-                    _autoSaveTimer?.cancel();
-                    _autoSaveTimer = Timer(
-                      const Duration(milliseconds: 500),
-                      _autoSave,
-                    );
-                  },
-                  child: Container(
-                    width: 50,
-                    height: 50,
-                    decoration: BoxDecoration(
-                      color: color,
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: color == _noteColor
-                            ? Theme.of(context).colorScheme.primary
-                            : Colors.grey,
-                        width: color == _noteColor ? 3 : 1,
-                      ),
-                    ),
-                  ),
-                );
-              }).toList(),
-            ),
-          ],
-        ),
-      ),
+          ),
     );
   }
 
@@ -347,27 +350,29 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
     if (selection.baseOffset != selection.extentOffset) {
       final text = _contentController.text;
       final newText = MarkdownHelper.applyBold(
-        text, 
-        selection.start, 
-        selection.end
+        text,
+        selection.start,
+        selection.end,
       );
-      
+
       // Cập nhật văn bản và giữ vị trí con trỏ
       _contentController.value = TextEditingValue(
         text: newText,
-        selection: TextSelection.collapsed(offset: selection.end + 4), // +4 vì thêm **
+        selection: TextSelection.collapsed(
+          offset: selection.end + 4,
+        ), // +4 vì thêm **
       );
     } else {
       // Khi không có văn bản được chọn, thêm dấu ** và đặt con trỏ ở giữa
       final cursorPos = selection.baseOffset;
-      
+
       if (cursorPos >= 0) {
         final beforeCursor = _contentController.text.substring(0, cursorPos);
         final afterCursor = _contentController.text.substring(cursorPos);
-        
+
         const textToInsert = "****";
         final newText = beforeCursor + textToInsert + afterCursor;
-        
+
         _contentController.value = TextEditingValue(
           text: newText,
           selection: TextSelection.collapsed(offset: cursorPos + 2),
@@ -375,33 +380,35 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
       }
     }
   }
-  
+
   void _formatItalic() {
     final selection = _contentController.selection;
     if (selection.baseOffset != selection.extentOffset) {
       final text = _contentController.text;
       final newText = MarkdownHelper.applyItalic(
-        text, 
-        selection.start, 
-        selection.end
+        text,
+        selection.start,
+        selection.end,
       );
-      
+
       // Cập nhật văn bản và giữ vị trí con trỏ
       _contentController.value = TextEditingValue(
         text: newText,
-        selection: TextSelection.collapsed(offset: selection.end + 2), // +2 vì thêm *
+        selection: TextSelection.collapsed(
+          offset: selection.end + 2,
+        ), // +2 vì thêm *
       );
     } else {
       // Khi không có văn bản được chọn, thêm dấu * và đặt con trỏ ở giữa
       final cursorPos = selection.baseOffset;
-      
+
       if (cursorPos >= 0) {
         final beforeCursor = _contentController.text.substring(0, cursorPos);
         final afterCursor = _contentController.text.substring(cursorPos);
-        
+
         const textToInsert = "**";
         final newText = beforeCursor + textToInsert + afterCursor;
-        
+
         _contentController.value = TextEditingValue(
           text: newText,
           selection: TextSelection.collapsed(offset: cursorPos + 1),
@@ -409,33 +416,35 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
       }
     }
   }
-  
+
   void _insertStrikethrough() {
     final selection = _contentController.selection;
     if (selection.baseOffset != selection.extentOffset) {
       final text = _contentController.text;
       final newText = MarkdownHelper.applyStrikethrough(
-        text, 
-        selection.start, 
-        selection.end
+        text,
+        selection.start,
+        selection.end,
       );
-      
+
       // Cập nhật văn bản và giữ vị trí con trỏ
       _contentController.value = TextEditingValue(
         text: newText,
-        selection: TextSelection.collapsed(offset: selection.end + 4), // +4 vì thêm ~~
+        selection: TextSelection.collapsed(
+          offset: selection.end + 4,
+        ), // +4 vì thêm ~~
       );
     } else {
       // Khi không có văn bản được chọn, thêm dấu ~~ và đặt con trỏ ở giữa
       final cursorPos = selection.baseOffset;
-      
+
       if (cursorPos >= 0) {
         final beforeCursor = _contentController.text.substring(0, cursorPos);
         final afterCursor = _contentController.text.substring(cursorPos);
-        
+
         const textToInsert = "~~~~";
         final newText = beforeCursor + textToInsert + afterCursor;
-        
+
         _contentController.value = TextEditingValue(
           text: newText,
           selection: TextSelection.collapsed(offset: cursorPos + 2),
@@ -443,33 +452,35 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
       }
     }
   }
-  
+
   void _insertCodeBlock() {
     final selection = _contentController.selection;
     if (selection.baseOffset != selection.extentOffset) {
       final text = _contentController.text;
       final newText = MarkdownHelper.applyCodeBlock(
-        text, 
-        selection.start, 
-        selection.end
+        text,
+        selection.start,
+        selection.end,
       );
-      
+
       // Cập nhật văn bản và giữ vị trí con trỏ
       _contentController.value = TextEditingValue(
         text: newText,
-        selection: TextSelection.collapsed(offset: selection.end + 2), // +2 vì thêm `
+        selection: TextSelection.collapsed(
+          offset: selection.end + 2,
+        ), // +2 vì thêm `
       );
     } else {
       // Khi không có văn bản được chọn, thêm dấu ` và đặt con trỏ ở giữa
       final cursorPos = selection.baseOffset;
-      
+
       if (cursorPos >= 0) {
         final beforeCursor = _contentController.text.substring(0, cursorPos);
         final afterCursor = _contentController.text.substring(cursorPos);
-        
+
         const textToInsert = "``";
         final newText = beforeCursor + textToInsert + afterCursor;
-        
+
         _contentController.value = TextEditingValue(
           text: newText,
           selection: TextSelection.collapsed(offset: cursorPos + 1),
@@ -477,17 +488,17 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
       }
     }
   }
-  
+
   void _insertBulletPoint() {
     final selection = _contentController.selection;
     if (selection.baseOffset != selection.extentOffset) {
       final text = _contentController.text;
       final newText = MarkdownHelper.applyBulletList(
-        text, 
-        selection.start, 
-        selection.end
+        text,
+        selection.start,
+        selection.end,
       );
-      
+
       // Cập nhật văn bản
       _contentController.value = TextEditingValue(
         text: newText,
@@ -498,15 +509,16 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
       final text = _contentController.text;
       final selection = _contentController.selection;
       final cursorPos = selection.baseOffset;
-      
+
       if (cursorPos >= 0) {
         final beforeCursor = text.substring(0, cursorPos);
         final afterCursor = text.substring(cursorPos);
-        final prefix = beforeCursor.isEmpty || beforeCursor.endsWith('\n') ? '' : '\n';
-        
+        final prefix =
+            beforeCursor.isEmpty || beforeCursor.endsWith('\n') ? '' : '\n';
+
         final textToInsert = "$prefix* ";
         final newText = beforeCursor + textToInsert + afterCursor;
-        
+
         _contentController.value = TextEditingValue(
           text: newText,
           selection: TextSelection.collapsed(
@@ -522,11 +534,11 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
     if (selection.baseOffset != selection.extentOffset) {
       final text = _contentController.text;
       final newText = MarkdownHelper.applyNumberedList(
-        text, 
-        selection.start, 
-        selection.end
+        text,
+        selection.start,
+        selection.end,
       );
-      
+
       // Cập nhật văn bản
       _contentController.value = TextEditingValue(
         text: newText,
@@ -537,12 +549,13 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
       final text = _contentController.text;
       final selection = _contentController.selection;
       final cursorPos = selection.baseOffset;
-      
+
       if (cursorPos >= 0) {
         final beforeCursor = text.substring(0, cursorPos);
         final afterCursor = text.substring(cursorPos);
-        final prefix = beforeCursor.isEmpty || beforeCursor.endsWith('\n') ? '' : '\n';
-        
+        final prefix =
+            beforeCursor.isEmpty || beforeCursor.endsWith('\n') ? '' : '\n';
+
         // Tìm số cho dòng tiếp theo
         int number = 1;
         if (prefix.isEmpty && beforeCursor.isNotEmpty) {
@@ -553,10 +566,10 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
             number = int.parse(match.group(1)!) + 1;
           }
         }
-        
+
         final textToInsert = "$prefix$number. ";
         final newText = beforeCursor + textToInsert + afterCursor;
-        
+
         _contentController.value = TextEditingValue(
           text: newText,
           selection: TextSelection.collapsed(
@@ -572,11 +585,11 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
     if (selection.baseOffset != selection.extentOffset) {
       final text = _contentController.text;
       final newText = MarkdownHelper.applyHeading(
-        text, 
-        selection.start, 
-        selection.end
+        text,
+        selection.start,
+        selection.end,
       );
-      
+
       // Cập nhật văn bản
       _contentController.value = TextEditingValue(
         text: newText,
@@ -587,15 +600,16 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
       final text = _contentController.text;
       final selection = _contentController.selection;
       final cursorPos = selection.baseOffset;
-      
+
       if (cursorPos >= 0) {
         final beforeCursor = text.substring(0, cursorPos);
         final afterCursor = text.substring(cursorPos);
-        final prefix = beforeCursor.isEmpty || beforeCursor.endsWith('\n') ? '' : '\n';
-        
+        final prefix =
+            beforeCursor.isEmpty || beforeCursor.endsWith('\n') ? '' : '\n';
+
         final textToInsert = "${prefix}# ";
         final newText = beforeCursor + textToInsert + afterCursor;
-        
+
         _contentController.value = TextEditingValue(
           text: newText,
           selection: TextSelection.collapsed(
@@ -611,11 +625,11 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
     if (selection.baseOffset != selection.extentOffset) {
       final text = _contentController.text;
       final newText = MarkdownHelper.applyQuote(
-        text, 
-        selection.start, 
-        selection.end
+        text,
+        selection.start,
+        selection.end,
       );
-      
+
       // Cập nhật văn bản
       _contentController.value = TextEditingValue(
         text: newText,
@@ -626,15 +640,16 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
       final text = _contentController.text;
       final selection = _contentController.selection;
       final cursorPos = selection.baseOffset;
-      
+
       if (cursorPos >= 0) {
         final beforeCursor = text.substring(0, cursorPos);
         final afterCursor = text.substring(cursorPos);
-        final prefix = beforeCursor.isEmpty || beforeCursor.endsWith('\n') ? '' : '\n';
-        
+        final prefix =
+            beforeCursor.isEmpty || beforeCursor.endsWith('\n') ? '' : '\n';
+
         final textToInsert = "$prefix> ";
         final newText = beforeCursor + textToInsert + afterCursor;
-        
+
         _contentController.value = TextEditingValue(
           text: newText,
           selection: TextSelection.collapsed(
@@ -747,21 +762,22 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
   Future<void> _deleteNote() async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Xóa ghi chú'),
-        content: const Text('Bạn có chắc chắn muốn xóa ghi chú này?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Hủy'),
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Xóa ghi chú'),
+            content: const Text('Bạn có chắc chắn muốn xóa ghi chú này?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Hủy'),
+              ),
+              TextButton(
+                style: TextButton.styleFrom(foregroundColor: Colors.red),
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('Xóa'),
+              ),
+            ],
           ),
-          TextButton(
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Xóa'),
-          ),
-        ],
-      ),
     );
 
     if (confirmed == true && _note != null) {
@@ -800,11 +816,50 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
     }
   }
 
+  // Thêm phương thức này để xác định màu chữ tự động dựa trên màu nền
+  Color _getTextColorForBackground(Color backgroundColor) {
+    // Tính độ sáng của màu nền
+    final double brightness =
+        (0.299 * backgroundColor.red +
+            0.587 * backgroundColor.green +
+            0.114 * backgroundColor.blue) /
+        255;
+
+    // Nếu màu nền sáng, dùng chữ đen, ngược lại dùng chữ trắng
+    return brightness > 0.5 ? Colors.black87 : Colors.white;
+  }
+
   @override
   Widget build(BuildContext context) {
     if (!_isInitialized) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
+
+    // Lấy theme hiện tại
+    final theme = Theme.of(context);
+
+    // Xác định màu nền: ưu tiên _noteColor, nếu là trắng thì dùng màu nền từ theme
+    final backgroundColor =
+        _noteColor == Colors.white ? theme.scaffoldBackgroundColor : _noteColor;
+
+    // Xác định màu chữ dựa trên màu nền
+    final textColor = _getTextColorForBackground(backgroundColor);
+    final hintColor = textColor.withOpacity(0.6);
+
+    // Tạo InputDecoration trong một biến cục bộ
+    final titleInputDecoration = InputDecoration(
+      hintText: 'Tiêu đề',
+      hintStyle: TextStyle(color: hintColor),
+      border: InputBorder.none,
+      contentPadding: EdgeInsets.zero,
+    );
+
+    final contentInputDecoration = InputDecoration(
+      hintText: 'Nhập nội dung ghi chú của bạn...',
+      hintStyle: TextStyle(color: hintColor),
+      border: InputBorder.none,
+      contentPadding: EdgeInsets.zero,
+    );
 
     return PopScope(
       canPop: true, // Luôn cho phép quay lại vì chúng ta tự động lưu
@@ -817,10 +872,12 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
         }
       },
       child: Theme(
-        data: Theme.of(context).copyWith(scaffoldBackgroundColor: _noteColor),
+        // Sử dụng màu nền đã xác định
+        data: theme.copyWith(scaffoldBackgroundColor: backgroundColor),
         child: Scaffold(
+          // Sử dụng màu nền đã xác định
           appBar: AppBar(
-            backgroundColor: _noteColor,
+            backgroundColor: backgroundColor,
             elevation: 0,
             title: Text(_note == null ? 'Ghi chú mới' : 'Chỉnh sửa ghi chú'),
             leading: IconButton(
@@ -867,67 +924,68 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
                       break;
                   }
                 },
-                itemBuilder: (context) => [
-                  PopupMenuItem(
-                    value: 'color',
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.color_lens,
-                          color: Theme.of(context).colorScheme.primary,
+                itemBuilder:
+                    (context) => [
+                      PopupMenuItem(
+                        value: 'color',
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.color_lens,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                            const SizedBox(width: 8),
+                            const Text('Đổi màu ghi chú'),
+                          ],
                         ),
-                        const SizedBox(width: 8),
-                        const Text('Đổi màu ghi chú'),
-                      ],
-                    ),
-                  ),
-                  PopupMenuItem(
-                    value: 'reminder',
-                    child: Row(
-                      children: [
-                        Icon(
-                          _reminderDateTime != null
-                              ? Icons.notifications_active
-                              : Icons.notifications_none,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          _reminderDateTime != null
-                              ? 'Thay đổi nhắc nhở'
-                              : 'Đặt nhắc nhở',
-                        ),
-                      ],
-                    ),
-                  ),
-                  PopupMenuItem(
-                    value: 'share',
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.share,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                        const SizedBox(width: 8),
-                        const Text('Chia sẻ ghi chú'),
-                      ],
-                    ),
-                  ),
-                  if (_note != null)
-                    PopupMenuItem(
-                      value: 'delete',
-                      child: Row(
-                        children: [
-                          const Icon(Icons.delete, color: Colors.red),
-                          const SizedBox(width: 8),
-                          const Text(
-                            'Xóa ghi chú',
-                            style: TextStyle(color: Colors.red),
-                          ),
-                        ],
                       ),
-                    ),
-                ],
+                      PopupMenuItem(
+                        value: 'reminder',
+                        child: Row(
+                          children: [
+                            Icon(
+                              _reminderDateTime != null
+                                  ? Icons.notifications_active
+                                  : Icons.notifications_none,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              _reminderDateTime != null
+                                  ? 'Thay đổi nhắc nhở'
+                                  : 'Đặt nhắc nhở',
+                            ),
+                          ],
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: 'share',
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.share,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                            const SizedBox(width: 8),
+                            const Text('Chia sẻ ghi chú'),
+                          ],
+                        ),
+                      ),
+                      if (_note != null)
+                        PopupMenuItem(
+                          value: 'delete',
+                          child: Row(
+                            children: [
+                              const Icon(Icons.delete, color: Colors.red),
+                              const SizedBox(width: 8),
+                              const Text(
+                                'Xóa ghi chú',
+                                style: TextStyle(color: Colors.red),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
               ),
               if (_isSaving)
                 Container(
@@ -946,7 +1004,8 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
           body: Stack(
             children: [
               Container(
-                color: _noteColor,
+                // Sử dụng màu nền đã xác định
+                color: backgroundColor,
                 child: Column(
                   children: [
                     // Hiển thị nhắc nhở
@@ -968,14 +1027,20 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
                             Icon(
                               Icons.notifications_active,
                               size: 20,
-                              color: Theme.of(context).colorScheme.onPrimaryContainer,
+                              color:
+                                  Theme.of(
+                                    context,
+                                  ).colorScheme.onPrimaryContainer,
                             ),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
                                 'Nhắc nhở: ${_formatDateTime(_reminderDateTime!)}',
                                 style: TextStyle(
-                                  color: Theme.of(context).colorScheme.onPrimaryContainer,
+                                  color:
+                                      Theme.of(
+                                        context,
+                                      ).colorScheme.onPrimaryContainer,
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),
@@ -984,7 +1049,10 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
                               icon: Icon(
                                 Icons.close,
                                 size: 18,
-                                color: Theme.of(context).colorScheme.onPrimaryContainer,
+                                color:
+                                    Theme.of(
+                                      context,
+                                    ).colorScheme.onPrimaryContainer,
                               ),
                               onPressed: () {
                                 setState(() {
@@ -1081,29 +1149,29 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
                     // Trình chỉnh sửa ghi chú
                     Expanded(
                       child: Container(
-                        color: _noteColor,
+                        // Sử dụng màu nền đã xác định
+                        color: backgroundColor,
                         padding: const EdgeInsets.all(16.0),
                         child: Column(
                           children: [
                             // Tiêu đề
                             TextField(
                               controller: _titleController,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 26,
                                 fontWeight: FontWeight.bold,
                                 height: 1.3,
+                                // Sử dụng màu chữ dựa trên màu nền
+                                color: textColor,
                               ),
                               maxLines: null,
-                              decoration: const InputDecoration(
-                                hintText: 'Tiêu đề',
-                                border: InputBorder.none,
-                                contentPadding: EdgeInsets.zero,
-                              ),
+                              // Sử dụng biến InputDecoration đã tạo
+                              decoration: titleInputDecoration,
                               textCapitalization: TextCapitalization.sentences,
                             ),
                             const SizedBox(height: 16),
 
-                            // Nội dung - sử dụng TextField thay vì QuillEditor
+                            // Nội dung
                             Expanded(
                               child: Container(
                                 decoration: BoxDecoration(
@@ -1115,13 +1183,14 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
                                   focusNode: _focusNode,
                                   maxLines: null,
                                   expands: true,
-                                  style: const TextStyle(fontSize: 16),
-                                  decoration: const InputDecoration(
-                                    hintText: 'Nhập nội dung ghi chú của bạn...',
-                                    border: InputBorder.none,
-                                    contentPadding: EdgeInsets.zero,
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: textColor,
                                   ),
-                                  textCapitalization: TextCapitalization.sentences,
+                                  // Sử dụng biến InputDecoration đã tạo
+                                  decoration: contentInputDecoration,
+                                  textCapitalization:
+                                      TextCapitalization.sentences,
                                 ),
                               ),
                             ),

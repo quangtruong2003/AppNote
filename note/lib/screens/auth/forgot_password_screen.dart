@@ -57,6 +57,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       appBar: AppBar(
         title: const Text('Quên mật khẩu'),
         elevation: 0,
@@ -66,7 +67,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24.0),
-          child: _emailSent ? _buildSuccessMessage() : _buildResetForm(),
+          child:
+              _emailSent
+                  ? _buildSuccessMessage()
+                  : SingleChildScrollView(child: _buildResetForm()),
         ),
       ),
     );
@@ -123,6 +127,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               fillColor: colorScheme.surfaceVariant.withOpacity(0.1),
             ),
             keyboardType: TextInputType.emailAddress,
+            textInputAction: TextInputAction.done,
+            onFieldSubmitted: (_) => _resetPassword(),
             validator: (value) {
               if (value == null || value.isEmpty) {
                 return 'Vui lòng nhập email của bạn';

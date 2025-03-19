@@ -185,8 +185,10 @@ class _NotesListBodyState extends State<NotesListBody> {
 
   /// Hàm chuyển đổi chuỗi có dấu thành không dấu
   String _removeDiacritics(String text) {
-    var withDiacritics = 'àáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđÀÁẢÃẠĂẰẮẲẴẶÂẦẤẨẪẬÈÉẺẼẸÊỀẾỂỄỆÌÍỈĨỊÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢÙÚỦŨỤƯỪỨỬỮỰỲÝỶỸỴĐ';
-    var withoutDiacritics = 'aaaaaaaaaaaaaaaaaeeeeeeeeeeeiiiiiooooooooooooooooouuuuuuuuuuuyyyyydAAAAAAAAAAAAAAAAAEEEEEEEEEEEIIIIIOOOOOOOOOOOOOOOOOUUUUUUUUUUUYYYYYD';
+    var withDiacritics =
+        'àáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđÀÁẢÃẠĂẰẮẲẴẶÂẦẤẨẪẬÈÉẺẼẸÊỀẾỂỄỆÌÍỈĨỊÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢÙÚỦŨỤƯỪỨỬỮỰỲÝỶỸỴĐ';
+    var withoutDiacritics =
+        'aaaaaaaaaaaaaaaaaeeeeeeeeeeeiiiiiooooooooooooooooouuuuuuuuuuuyyyyydAAAAAAAAAAAAAAAAAEEEEEEEEEEEIIIIIOOOOOOOOOOOOOOOOOUUUUUUUUUUUYYYYYD';
 
     String result = text;
     for (int i = 0; i < withDiacritics.length; i++) {
@@ -204,14 +206,19 @@ class _NotesListBodyState extends State<NotesListBody> {
     // Cải tiến filter notes để hỗ trợ tìm kiếm không dấu
     if (_searchQuery.isNotEmpty) {
       String normalizedQuery = _removeDiacritics(_searchQuery.toLowerCase());
-      
-      filteredNotes = filteredNotes.where((note) {
-        String normalizedTitle = _removeDiacritics(note.title.toLowerCase());
-        String normalizedContent = _removeDiacritics(note.content.toLowerCase());
-        
-        return normalizedTitle.contains(normalizedQuery) || 
-               normalizedContent.contains(normalizedQuery);
-      }).toList();
+
+      filteredNotes =
+          filteredNotes.where((note) {
+            String normalizedTitle = _removeDiacritics(
+              note.title.toLowerCase(),
+            );
+            String normalizedContent = _removeDiacritics(
+              note.content.toLowerCase(),
+            );
+
+            return normalizedTitle.contains(normalizedQuery) ||
+                normalizedContent.contains(normalizedQuery);
+          }).toList();
     }
 
     return Column(
@@ -393,8 +400,7 @@ class _NotesListBodyState extends State<NotesListBody> {
                                             style: TextStyle(
                                               fontSize: 17,
                                               fontWeight: FontWeight.bold,
-                                              color:
-                                                  theme.colorScheme.onSurface,
+                                              color: Colors.black87,
                                             ),
                                             maxLines: 2,
                                             overflow: TextOverflow.ellipsis,
@@ -408,8 +414,7 @@ class _NotesListBodyState extends State<NotesListBody> {
                                         note.content,
                                         style: TextStyle(
                                           fontSize: 14,
-                                          color: theme.colorScheme.onSurface
-                                              .withOpacity(0.8),
+                                          color: Colors.black.withOpacity(0.8),
                                         ),
                                         maxLines: 4,
                                         overflow: TextOverflow.ellipsis,
@@ -449,10 +454,7 @@ class _NotesListBodyState extends State<NotesListBody> {
                                                   style: TextStyle(
                                                     fontSize: 10,
                                                     fontWeight: FontWeight.w500,
-                                                    color:
-                                                        theme
-                                                            .colorScheme
-                                                            .onPrimaryContainer,
+                                                    color: Colors.black87,
                                                   ),
                                                 ),
                                               ],
@@ -465,10 +467,7 @@ class _NotesListBodyState extends State<NotesListBody> {
                                               _formatDate(note.updatedAt),
                                               style: TextStyle(
                                                 fontSize: 10,
-                                                color: theme
-                                                    .colorScheme
-                                                    .onSurface
-                                                    .withOpacity(0.6),
+                                                color: Colors.black54,
                                               ),
                                               textAlign: TextAlign.right,
                                               overflow: TextOverflow.ellipsis,
