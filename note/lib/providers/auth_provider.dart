@@ -5,6 +5,7 @@ import '../services/auth_service.dart';
 import '../models/user.dart';
 import '../services/storage_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 
 class AuthProvider extends ChangeNotifier {
   final AuthService _authService = AuthService();
@@ -222,17 +223,83 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Cập nhật thông tin hồ sơ người dùng - chỉ cập nhật tên
-  Future<void> updateProfile(String displayName) async {
+  // Cập nhật thông tin hồ sơ người dùng với xử lý tải ảnh lên cải tiến
+  Future<void> updateProfile(String displayName, {File? photoFile}) async {
     _loading = true;
     notifyListeners();
 
     try {
-      // Chỉ cập nhật tên hiển thị, không cập nhật ảnh
-      await _authService.updateUserProfile(displayName, null);
+      if (_authService.currentUser == null) {
+        throw Exception('Người dùng chưa đăng nhập');
+      }
 
-      // Đảm bảo dữ liệu được làm mới
-      await checkCurrentUser();
+      // Cập nhật ảnh đại diện nếu có
+      String? photoURL = _authService.currentUser?.photoURL;
+      if (photoFile != null) {
+        try {
+          // Tạo reference cho storage với đường dẫn đúng
+          final storageRef = FirebaseStorage.instance
+              .ref()
+              .child('user_avatars')
+              .child(
+                '${_authService.currentUser!.uid}_${DateTime.now().millisecondsSinceEpoch}.jpg',
+              );
+
+          // Thiết lập metadata cho ảnh
+          final metadata = SettableMetadata(
+            contentType: 'image/jpeg',
+            customMetadata: {'userId': _authService.currentUser!.uid},
+          );
+
+          // Tải ảnh lên với metadata
+          final uploadTask = storageRef.putFile(photoFile, metadata);
+
+          // Theo dõi tiến trình tải lên (tùy chọn)
+          uploadTask.snapshotEvents.listen((TaskSnapshot snapshot) {
+            final progress = snapshot.bytesTransferred / snapshot.totalBytes;
+            debugPrint(
+              'Tiến trình tải lên: ${(progress * 100).toStringAsFixed(1)}%',
+            );
+          });
+
+          // Đợi tải lên hoàn tất
+          final snapshot = await uploadTask;
+
+          // Lấy URL download
+          photoURL = await snapshot.ref.getDownloadURL();
+          debugPrint('Tải ảnh đại diện lên thành công: $photoURL');
+        } catch (e) {
+          debugPrint('Lỗi khi tải ảnh lên Firebase Storage: $e');
+          // Nếu lỗi tải lên ảnh, vẫn tiếp tục cập nhật tên
+          // không throw exception ở đây để người dùng vẫn cập nhật được tên
+        }
+      }
+
+      // Cập nhật thông tin người dùng
+      await _authService.currentUser!.updateDisplayName(displayName);
+      if (photoURL != null) {
+        await _authService.currentUser!.updatePhotoURL(photoURL);
+      }
+
+      // Cập nhật thông tin trong Firestore
+      if (_authService.currentUser != null) {
+        try {
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(_authService.currentUser!.uid)
+              .set({
+                'displayName': displayName,
+                'photoURL': photoURL,
+                'updatedAt': FieldValue.serverTimestamp(),
+              }, SetOptions(merge: true));
+        } catch (e) {
+          debugPrint('Lỗi khi cập nhật Firestore: $e');
+          // Không throw exception ở đây
+        }
+      }
+
+      // Làm mới thông tin người dùng
+      await reloadUser();
     } catch (e) {
       _setError(e);
       _loading = false;

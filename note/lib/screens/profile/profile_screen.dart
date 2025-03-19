@@ -119,23 +119,95 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 ),
                               ],
                             ),
-                            child: Center(
-                              child: Text(
-                                authProvider.user?.displayName?.isNotEmpty ==
-                                        true
-                                    ? authProvider.user!.displayName![0]
-                                        .toUpperCase()
-                                    : authProvider.user?.email?.isNotEmpty ==
-                                        true
-                                    ? authProvider.user!.email![0].toUpperCase()
-                                    : 'U',
-                                style: TextStyle(
-                                  fontSize: 40,
-                                  color: colorScheme.primary,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
+                            child:
+                                authProvider.user?.photoURL != null
+                                    ? ClipOval(
+                                      child: Image.network(
+                                        authProvider.user!.photoURL!,
+                                        width: 100,
+                                        height: 100,
+                                        fit: BoxFit.cover,
+                                        loadingBuilder: (
+                                          context,
+                                          child,
+                                          loadingProgress,
+                                        ) {
+                                          if (loadingProgress == null)
+                                            return child;
+                                          return Center(
+                                            child: CircularProgressIndicator(
+                                              value:
+                                                  loadingProgress
+                                                              .expectedTotalBytes !=
+                                                          null
+                                                      ? loadingProgress
+                                                              .cumulativeBytesLoaded /
+                                                          loadingProgress
+                                                              .expectedTotalBytes!
+                                                      : null,
+                                              strokeWidth: 2,
+                                              color: colorScheme.primary,
+                                            ),
+                                          );
+                                        },
+                                        errorBuilder: (
+                                          context,
+                                          error,
+                                          stackTrace,
+                                        ) {
+                                          return Center(
+                                            child: Text(
+                                              authProvider
+                                                          .user
+                                                          ?.displayName
+                                                          ?.isNotEmpty ==
+                                                      true
+                                                  ? authProvider
+                                                      .user!
+                                                      .displayName![0]
+                                                      .toUpperCase()
+                                                  : authProvider
+                                                          .user
+                                                          ?.email
+                                                          ?.isNotEmpty ==
+                                                      true
+                                                  ? authProvider.user!.email![0]
+                                                      .toUpperCase()
+                                                  : 'U',
+                                              style: TextStyle(
+                                                fontSize: 40,
+                                                color: colorScheme.primary,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                    )
+                                    : Center(
+                                      child: Text(
+                                        authProvider
+                                                    .user
+                                                    ?.displayName
+                                                    ?.isNotEmpty ==
+                                                true
+                                            ? authProvider.user!.displayName![0]
+                                                .toUpperCase()
+                                            : authProvider
+                                                    .user
+                                                    ?.email
+                                                    ?.isNotEmpty ==
+                                                true
+                                            ? authProvider.user!.email![0]
+                                                .toUpperCase()
+                                            : 'U',
+                                        style: TextStyle(
+                                          fontSize: 40,
+                                          color: colorScheme.primary,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
                           ),
                           const SizedBox(height: 20),
                           Text(

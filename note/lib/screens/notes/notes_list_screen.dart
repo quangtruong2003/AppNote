@@ -49,12 +49,14 @@ class _NotesListScreenState extends State<NotesListScreen> {
               tooltip: 'Tìm kiếm',
               onPressed: _toggleSearch,
             ),
-            IconButton(
-              icon: const Icon(Icons.person_outline),
-              tooltip: 'Hồ sơ',
-              onPressed: () {
+            GestureDetector(
+              onTap: () {
                 Navigator.pushNamed(context, '/profile');
               },
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                child: _buildUserAvatar(context),
+              ),
             ),
           ],
         ),
@@ -66,6 +68,76 @@ class _NotesListScreenState extends State<NotesListScreen> {
           icon: const Icon(Icons.add),
           label: const Text('Ghi chú mới'),
           elevation: 4,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildUserAvatar(BuildContext context) {
+    final authProvider = Provider.of<AuthProvider>(context);
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Container(
+      width: 36,
+      height: 36,
+      decoration: BoxDecoration(
+        color: colorScheme.primaryContainer,
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: colorScheme.primary.withOpacity(0.2),
+          width: 2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: colorScheme.shadow.withOpacity(0.1),
+            blurRadius: 4,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      ),
+      child:
+          authProvider.user?.photoURL != null
+              ? ClipOval(
+                child: Image.network(
+                  authProvider.user!.photoURL!,
+                  width: 36,
+                  height: 36,
+                  fit: BoxFit.cover,
+                  loadingBuilder: (context, child, loadingProgress) {
+                    if (loadingProgress == null) return child;
+                    return Center(
+                      child: CircularProgressIndicator(
+                        value:
+                            loadingProgress.expectedTotalBytes != null
+                                ? loadingProgress.cumulativeBytesLoaded /
+                                    loadingProgress.expectedTotalBytes!
+                                : null,
+                        strokeWidth: 2,
+                        color: colorScheme.primary,
+                      ),
+                    );
+                  },
+                  errorBuilder: (context, error, stackTrace) {
+                    return _buildAvatarFallback(authProvider);
+                  },
+                ),
+              )
+              : _buildAvatarFallback(authProvider),
+    );
+  }
+
+  Widget _buildAvatarFallback(AuthProvider authProvider) {
+    return Center(
+      child: Text(
+        authProvider.user?.displayName?.isNotEmpty == true
+            ? authProvider.user!.displayName![0].toUpperCase()
+            : authProvider.user?.email?.isNotEmpty == true
+            ? authProvider.user!.email![0].toUpperCase()
+            : 'U',
+        style: TextStyle(
+          fontSize: 16,
+          color: Theme.of(context).colorScheme.primary,
+          fontWeight: FontWeight.bold,
         ),
       ),
     );
