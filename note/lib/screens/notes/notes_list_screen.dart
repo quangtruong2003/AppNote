@@ -5,6 +5,7 @@ import '../../models/note.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/note_provider.dart';
 import '../../widgets/note_card.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 
 class NotesListScreen extends StatefulWidget {
   const NotesListScreen({Key? key}) : super(key: key);
@@ -453,8 +454,10 @@ class _NotesListBodyState extends State<NotesListBody> {
                               child: Padding(
                                 padding: const EdgeInsets.all(16.0),
                                 child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: <Widget>[
                                     Row(
                                       children: [
                                         if (note.isPinned)
@@ -469,7 +472,7 @@ class _NotesListBodyState extends State<NotesListBody> {
                                         Expanded(
                                           child: Text(
                                             note.title,
-                                            style: TextStyle(
+                                            style: const TextStyle(
                                               fontSize: 17,
                                               fontWeight: FontWeight.bold,
                                               color: Colors.black87,
@@ -481,15 +484,55 @@ class _NotesListBodyState extends State<NotesListBody> {
                                       ],
                                     ),
                                     const SizedBox(height: 8),
-                                    Expanded(
-                                      child: Text(
-                                        note.content,
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          color: Colors.black.withOpacity(0.8),
-                                        ),
-                                        maxLines: 4,
-                                        overflow: TextOverflow.ellipsis,
+                                    Flexible(
+                                      child: LayoutBuilder(
+                                        builder: (
+                                          BuildContext context,
+                                          BoxConstraints constraints,
+                                        ) {
+                                          return SingleChildScrollView(
+                                            child: ConstrainedBox(
+                                              constraints: BoxConstraints(
+                                                minHeight:
+                                                    constraints.maxHeight,
+                                              ),
+                                              child: MarkdownBody(
+                                                data: note.content,
+                                                fitContent: false,
+                                                styleSheet: MarkdownStyleSheet(
+                                                  p: TextStyle(
+                                                    fontSize: 14,
+                                                    color: Colors.black
+                                                        .withOpacity(0.8),
+                                                  ),
+                                                  strong: const TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                    color: Colors.black87,
+                                                  ),
+                                                  em: const TextStyle(
+                                                    fontStyle: FontStyle.italic,
+                                                  ),
+                                                  del: const TextStyle(
+                                                    decoration:
+                                                        TextDecoration
+                                                            .lineThrough,
+                                                  ),
+                                                  code: TextStyle(
+                                                    backgroundColor:
+                                                        theme
+                                                            .colorScheme
+                                                            .surfaceVariant,
+                                                    color:
+                                                        theme
+                                                            .colorScheme
+                                                            .onSurfaceVariant,
+                                                    fontFamily: 'monospace',
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          );
+                                        },
                                       ),
                                     ),
                                     const SizedBox(height: 8),

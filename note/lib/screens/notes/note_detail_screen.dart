@@ -6,6 +6,7 @@ import '../../models/note.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/note_provider.dart';
 import '../../utils/markdown_converter.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 
 class NoteDetailScreen extends StatefulWidget {
   const NoteDetailScreen({super.key});
@@ -28,7 +29,6 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
   Timer? _autoSaveTimer;
   final bool _autoSaveEnabled = true;
   bool _showSavedIndicator = false;
-  bool _showFormatToolbar = false;
   Color _noteColor = Colors.white;
   final List<Color> _availableColors = [
     Colors.white,
@@ -41,6 +41,9 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
     const Color(0xFFFFEBEE), // Hồng nhạt
     const Color(0xFFFFF3E0), // Cam nhạt
   ];
+  bool _isBold = false;
+  bool _isItalic = false;
+  bool _isStrikethrough = false;
 
   @override
   void initState() {
@@ -48,6 +51,8 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initializeNote();
     });
+
+    _focusNode.addListener(_onFocusChange);
   }
 
   @override
@@ -65,6 +70,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
     _scrollController.dispose();
     _focusNode.dispose();
     _autoSaveTimer?.cancel();
+    _focusNode.removeListener(_onFocusChange);
     super.dispose();
   }
 
@@ -96,13 +102,6 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
 
     _titleController.addListener(_onTextChanged);
     _contentController.addListener(_onTextChanged);
-
-    // Focus vào trường nhập liệu
-    Future.delayed(const Duration(milliseconds: 200), () {
-      if (mounted) {
-        FocusScope.of(context).requestFocus(_focusNode);
-      }
-    });
   }
 
   void _onTextChanged() {
@@ -251,12 +250,6 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
     _autoSaveTimer = Timer(const Duration(milliseconds: 500), _autoSave);
   }
 
-  void _toggleFormatToolbar() {
-    setState(() {
-      _showFormatToolbar = !_showFormatToolbar;
-    });
-  }
-
   Future<void> _shareNote() async {
     if (_note == null &&
         _titleController.text.isEmpty &&
@@ -344,112 +337,72 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
     );
   }
 
-  // Hàm định dạng cho văn bản - sử dụng MarkdownHelper
+  // Hàm định dạng cho văn bản - sử dụng MarkdownHelper và toggle trạng thái
   void _formatBold() {
     final selection = _contentController.selection;
+    final text = _contentController.text;
+
+    // Cập nhật trạng thái _isBold
+    _isBold = !_isBold;
+
     if (selection.baseOffset != selection.extentOffset) {
-      final text = _contentController.text;
+      // Trường hợp có chọn văn bản
       final newText = MarkdownHelper.applyBold(
         text,
         selection.start,
         selection.end,
       );
+      final addedChars = newText.length - text.length;
 
-      // Cập nhật văn bản và giữ vị trí con trỏ
       _contentController.value = TextEditingValue(
         text: newText,
         selection: TextSelection.collapsed(
-          offset: selection.end + 4,
-        ), // +4 vì thêm **
+          offset: selection.end + addedChars, // Đặt con trỏ *sau* phần Markdown
+        ),
       );
-    } else {
-      // Khi không có văn bản được chọn, thêm dấu ** và đặt con trỏ ở giữa
-      final cursorPos = selection.baseOffset;
-
-      if (cursorPos >= 0) {
-        final beforeCursor = _contentController.text.substring(0, cursorPos);
-        final afterCursor = _contentController.text.substring(cursorPos);
-
-        const textToInsert = "****";
-        final newText = beforeCursor + textToInsert + afterCursor;
-
-        _contentController.value = TextEditingValue(
-          text: newText,
-          selection: TextSelection.collapsed(offset: cursorPos + 2),
-        );
-      }
     }
   }
 
   void _formatItalic() {
     final selection = _contentController.selection;
+    final text = _contentController.text;
+
+    // Cập nhật trạng thái _isItalic
+    _isItalic = !_isItalic;
+
     if (selection.baseOffset != selection.extentOffset) {
-      final text = _contentController.text;
+      // Trường hợp có chọn văn bản
       final newText = MarkdownHelper.applyItalic(
         text,
         selection.start,
         selection.end,
       );
+      final addedChars = newText.length - text.length;
 
-      // Cập nhật văn bản và giữ vị trí con trỏ
       _contentController.value = TextEditingValue(
         text: newText,
-        selection: TextSelection.collapsed(
-          offset: selection.end + 2,
-        ), // +2 vì thêm *
+        selection: TextSelection.collapsed(offset: selection.end + addedChars),
       );
-    } else {
-      // Khi không có văn bản được chọn, thêm dấu * và đặt con trỏ ở giữa
-      final cursorPos = selection.baseOffset;
-
-      if (cursorPos >= 0) {
-        final beforeCursor = _contentController.text.substring(0, cursorPos);
-        final afterCursor = _contentController.text.substring(cursorPos);
-
-        const textToInsert = "**";
-        final newText = beforeCursor + textToInsert + afterCursor;
-
-        _contentController.value = TextEditingValue(
-          text: newText,
-          selection: TextSelection.collapsed(offset: cursorPos + 1),
-        );
-      }
     }
   }
 
   void _insertStrikethrough() {
     final selection = _contentController.selection;
+    final text = _contentController.text;
+
     if (selection.baseOffset != selection.extentOffset) {
-      final text = _contentController.text;
+      // Trường hợp có chọn văn bản
       final newText = MarkdownHelper.applyStrikethrough(
         text,
         selection.start,
         selection.end,
       );
+      final addedChars = newText.length - text.length;
 
-      // Cập nhật văn bản và giữ vị trí con trỏ
       _contentController.value = TextEditingValue(
         text: newText,
-        selection: TextSelection.collapsed(
-          offset: selection.end + 4,
-        ), // +4 vì thêm ~~
+        selection: TextSelection.collapsed(offset: selection.end + addedChars),
       );
-    } else {
-      // Khi không có văn bản được chọn, thêm dấu ~~ và đặt con trỏ ở giữa
-      final cursorPos = selection.baseOffset;
-
-      if (cursorPos >= 0) {
-        final beforeCursor = _contentController.text.substring(0, cursorPos);
-        final afterCursor = _contentController.text.substring(cursorPos);
-
-        const textToInsert = "~~~~";
-        final newText = beforeCursor + textToInsert + afterCursor;
-
-        _contentController.value = TextEditingValue(
-          text: newText,
-          selection: TextSelection.collapsed(offset: cursorPos + 2),
-        );
-      }
     }
   }
 
@@ -829,6 +782,44 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
     return brightness > 0.5 ? Colors.black87 : Colors.white;
   }
 
+  void _onFocusChange() {
+    if (mounted) {
+      setState(() {
+        // Không cần làm gì cả, chỉ cần setState để rebuild widget
+      });
+    }
+  }
+
+  void _updateFormattingState(String text) {
+    final cursorPos = _contentController.selection.baseOffset;
+    final selection = _contentController.selection;
+
+    // Reset trạng thái nếu không có lựa chọn
+    if (selection.baseOffset == selection.extentOffset) {
+      _isBold = false;
+      _isItalic = false;
+      _isStrikethrough = false;
+    }
+
+    if (cursorPos > 0) {
+      final precedingChar = text.substring(cursorPos - 1, cursorPos);
+
+      // Kiểm tra định dạng dựa trên ký tự trước con trỏ
+      _isBold =
+          precedingChar == '*' &&
+          cursorPos >= 2 &&
+          text.substring(cursorPos - 2, cursorPos) == "**";
+      _isItalic =
+          precedingChar == '_' &&
+          cursorPos >= 2 &&
+          text.substring(cursorPos - 2, cursorPos) == "__";
+      // _isStrikethrough = precedingChar == '~' && cursorPos >= 2 && text.substring(cursorPos - 2, cursorPos) == "~~";
+
+      // Cập nhật lại giao diện (nếu cần)
+      setState(() {});
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (!_isInitialized) {
@@ -861,348 +852,387 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
       contentPadding: EdgeInsets.zero,
     );
 
-    return PopScope(
-      canPop: true, // Luôn cho phép quay lại vì chúng ta tự động lưu
-      onPopInvokedWithResult: (didPop, result) async {
-        if (!didPop) {
-          final shouldPop = await _onWillPop();
-          if (shouldPop && context.mounted) {
-            Navigator.of(context).pop();
-          }
-        }
+    return WillPopScope(
+      onWillPop: () async {
+        // Thêm hiệu ứng khi quay lại
+        Navigator.of(context).pop();
+        return false;
       },
-      child: Theme(
-        // Sử dụng màu nền đã xác định
-        data: theme.copyWith(scaffoldBackgroundColor: backgroundColor),
-        child: Scaffold(
-          // Sử dụng màu nền đã xác định
-          appBar: AppBar(
-            backgroundColor: backgroundColor,
-            elevation: 0,
-            title: Text(_note == null ? 'Ghi chú mới' : 'Chỉnh sửa ghi chú'),
-            leading: IconButton(
-              icon: const Icon(Icons.arrow_back),
-              tooltip: 'Quay lại',
-              onPressed: () async {
-                await _onWillPop();
-                if (mounted) Navigator.pop(context);
-              },
-            ),
-            actions: [
-              IconButton(
-                icon: Icon(
-                  _isPinned ? Icons.push_pin : Icons.push_pin_outlined,
-                ),
-                tooltip: 'Ghim ghi chú',
-                onPressed: _togglePinned,
-              ),
-              IconButton(
-                icon: Icon(
-                  _showFormatToolbar
-                      ? Icons.format_align_left
-                      : Icons.format_bold,
-                ),
-                tooltip: 'Định dạng văn bản',
-                onPressed: _toggleFormatToolbar,
-              ),
-              PopupMenuButton<String>(
-                icon: const Icon(Icons.more_vert),
-                tooltip: 'Tùy chọn khác',
-                onSelected: (value) {
-                  switch (value) {
-                    case 'color':
-                      _selectNoteColor();
-                      break;
-                    case 'share':
-                      _shareNote();
-                      break;
-                    case 'reminder':
-                      _selectReminderDateTime();
-                      break;
-                    case 'delete':
-                      _deleteNote();
-                      break;
-                  }
-                },
-                itemBuilder:
-                    (context) => [
-                      PopupMenuItem(
-                        value: 'color',
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.color_lens,
-                              color: Theme.of(context).colorScheme.primary,
-                            ),
-                            const SizedBox(width: 8),
-                            const Text('Đổi màu ghi chú'),
-                          ],
-                        ),
-                      ),
-                      PopupMenuItem(
-                        value: 'reminder',
-                        child: Row(
-                          children: [
-                            Icon(
-                              _reminderDateTime != null
-                                  ? Icons.notifications_active
-                                  : Icons.notifications_none,
-                              color: Theme.of(context).colorScheme.primary,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              _reminderDateTime != null
-                                  ? 'Thay đổi nhắc nhở'
-                                  : 'Đặt nhắc nhở',
-                            ),
-                          ],
-                        ),
-                      ),
-                      PopupMenuItem(
-                        value: 'share',
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.share,
-                              color: Theme.of(context).colorScheme.primary,
-                            ),
-                            const SizedBox(width: 8),
-                            const Text('Chia sẻ ghi chú'),
-                          ],
-                        ),
-                      ),
-                      if (_note != null)
-                        PopupMenuItem(
-                          value: 'delete',
-                          child: Row(
-                            children: [
-                              const Icon(Icons.delete, color: Colors.red),
-                              const SizedBox(width: 8),
-                              const Text(
-                                'Xóa ghi chú',
-                                style: TextStyle(color: Colors.red),
-                              ),
-                            ],
-                          ),
-                        ),
-                    ],
-              ),
-              if (_isSaving)
-                Container(
-                  width: 48,
-                  padding: const EdgeInsets.all(12),
-                  child: const CircularProgressIndicator(strokeWidth: 2),
-                )
-              else if (_showSavedIndicator)
-                Container(
-                  width: 48,
-                  padding: const EdgeInsets.all(12),
-                  child: const Icon(Icons.check, color: Colors.green),
-                ),
-            ],
+      child: Scaffold(
+        appBar: AppBar(
+          backgroundColor: backgroundColor,
+          elevation: 0,
+          title: Text(
+            _note == null ? 'Ghi chú mới' : 'Chỉnh sửa ghi chú',
+            style: TextStyle(color: textColor),
           ),
-          body: Stack(
-            children: [
-              Container(
-                // Sử dụng màu nền đã xác định
-                color: backgroundColor,
-                child: Column(
-                  children: [
-                    // Hiển thị nhắc nhở
-                    if (_reminderDateTime != null)
-                      Container(
-                        margin: const EdgeInsets.only(
-                          left: 16,
-                          right: 16,
-                          top: 8,
-                          bottom: 8,
-                        ),
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.primaryContainer,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
+          leading: IconButton(
+            icon: Icon(Icons.arrow_back, color: textColor),
+            tooltip: 'Quay lại',
+            onPressed: () async {
+              await _onWillPop();
+              if (mounted) Navigator.pop(context);
+            },
+          ),
+          actions: [
+            IconButton(
+              icon: Icon(
+                _isPinned ? Icons.push_pin : Icons.push_pin_outlined,
+                color: textColor,
+              ),
+              tooltip: 'Ghim ghi chú',
+              onPressed: _togglePinned,
+            ),
+            PopupMenuButton<String>(
+              icon: Icon(Icons.more_vert, color: textColor),
+              tooltip: 'Tùy chọn khác',
+              onSelected: (value) {
+                switch (value) {
+                  case 'color':
+                    _selectNoteColor();
+                    break;
+                  case 'share':
+                    _shareNote();
+                    break;
+                  case 'reminder':
+                    _selectReminderDateTime();
+                    break;
+                  case 'delete':
+                    _deleteNote();
+                    break;
+                }
+              },
+              itemBuilder:
+                  (context) => [
+                    PopupMenuItem(
+                      value: 'color',
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.color_lens,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                          const SizedBox(width: 8),
+                          const Text('Đổi màu ghi chú'),
+                        ],
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: 'reminder',
+                      child: Row(
+                        children: [
+                          Icon(
+                            _reminderDateTime != null
+                                ? Icons.notifications_active
+                                : Icons.notifications_none,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            _reminderDateTime != null
+                                ? 'Thay đổi nhắc nhở'
+                                : 'Đặt nhắc nhở',
+                          ),
+                        ],
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: 'share',
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.share,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                          const SizedBox(width: 8),
+                          const Text('Chia sẻ ghi chú'),
+                        ],
+                      ),
+                    ),
+                    if (_note != null)
+                      PopupMenuItem(
+                        value: 'delete',
                         child: Row(
                           children: [
-                            Icon(
-                              Icons.notifications_active,
-                              size: 20,
+                            const Icon(Icons.delete, color: Colors.red),
+                            const SizedBox(width: 8),
+                            const Text(
+                              'Xóa ghi chú',
+                              style: TextStyle(color: Colors.red),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+            ),
+            if (_isSaving)
+              Container(
+                width: 48,
+                padding: const EdgeInsets.all(12),
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: theme.colorScheme.primary,
+                ),
+              )
+            else if (_showSavedIndicator)
+              Container(
+                width: 48,
+                padding: const EdgeInsets.all(12),
+                child: const Icon(Icons.check, color: Colors.green),
+              ),
+          ],
+        ),
+        body: Stack(
+          children: [
+            Container(
+              color: backgroundColor,
+              child: Column(
+                children: [
+                  // Hiển thị nhắc nhở
+                  if (_reminderDateTime != null)
+                    Container(
+                      margin: const EdgeInsets.only(
+                        left: 16,
+                        right: 16,
+                        top: 8,
+                        bottom: 8,
+                      ),
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.primaryContainer,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.notifications_active,
+                            size: 20,
+                            color:
+                                Theme.of(
+                                  context,
+                                ).colorScheme.onPrimaryContainer,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Nhắc nhở: ${_formatDateTime(_reminderDateTime!)}',
+                              style: TextStyle(
+                                color:
+                                    Theme.of(
+                                      context,
+                                    ).colorScheme.onPrimaryContainer,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            icon: Icon(
+                              Icons.close,
+                              size: 18,
                               color:
                                   Theme.of(
                                     context,
                                   ).colorScheme.onPrimaryContainer,
                             ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                'Nhắc nhở: ${_formatDateTime(_reminderDateTime!)}',
-                                style: TextStyle(
-                                  color:
-                                      Theme.of(
-                                        context,
-                                      ).colorScheme.onPrimaryContainer,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
+                            onPressed: () {
+                              setState(() {
+                                _reminderDateTime = null;
+                                _isDirty = true;
+                              });
+                              _autoSaveTimer?.cancel();
+                              _autoSaveTimer = Timer(
+                                const Duration(milliseconds: 500),
+                                _autoSave,
+                              );
+                            },
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                  // Thanh công cụ CỐ ĐỊNH
+                  Container(
+                    height: 50,
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.surface,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withAlpha(26),
+                          blurRadius: 2,
+                          offset: const Offset(0, 1),
+                        ),
+                      ],
+                    ),
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                        child: Row(
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.format_bold),
+                              tooltip: 'In đậm',
+                              onPressed: _formatBold,
                             ),
                             IconButton(
-                              icon: Icon(
-                                Icons.close,
-                                size: 18,
-                                color:
-                                    Theme.of(
-                                      context,
-                                    ).colorScheme.onPrimaryContainer,
-                              ),
-                              onPressed: () {
-                                setState(() {
-                                  _reminderDateTime = null;
-                                  _isDirty = true;
-                                });
-                                _autoSaveTimer?.cancel();
-                                _autoSaveTimer = Timer(
-                                  const Duration(milliseconds: 500),
-                                  _autoSave,
-                                );
-                              },
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(),
+                              icon: const Icon(Icons.format_italic),
+                              tooltip: 'In nghiêng',
+                              onPressed: _formatItalic,
                             ),
-                          ],
-                        ),
-                      ),
-
-                    // Thanh công cụ định dạng đơn giản
-                    if (_showFormatToolbar)
-                      AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        height: 50,
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.surface,
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withAlpha(26),
-                              blurRadius: 2,
-                              offset: const Offset(0, 1),
+                            IconButton(
+                              icon: const Icon(Icons.format_strikethrough),
+                              tooltip: 'Gạch ngang',
+                              onPressed: _insertStrikethrough,
                             ),
-                          ],
-                        ),
-                        child: SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8.0,
+                            IconButton(
+                              icon: const Icon(Icons.code),
+                              tooltip: 'Khối mã',
+                              onPressed: _insertCodeBlock,
                             ),
-                            child: Row(
-                              children: [
-                                IconButton(
-                                  icon: const Icon(Icons.format_bold),
-                                  tooltip: 'In đậm',
-                                  onPressed: _formatBold,
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.format_italic),
-                                  tooltip: 'In nghiêng',
-                                  onPressed: _formatItalic,
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.format_strikethrough),
-                                  tooltip: 'Gạch ngang',
-                                  onPressed: _insertStrikethrough,
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.code),
-                                  tooltip: 'Khối mã',
-                                  onPressed: _insertCodeBlock,
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.format_list_bulleted),
-                                  tooltip: 'Danh sách',
-                                  onPressed: _insertBulletPoint,
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.format_list_numbered),
-                                  tooltip: 'Danh sách số',
-                                  onPressed: _insertNumberedPoint,
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.format_quote),
-                                  tooltip: 'Trích dẫn',
-                                  onPressed: _insertQuote,
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.title),
-                                  tooltip: 'Tiêu đề',
-                                  onPressed: _insertHeading,
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.color_lens),
-                                  tooltip: 'Màu ghi chú',
-                                  onPressed: _selectNoteColor,
-                                ),
-                              ],
+                            IconButton(
+                              icon: const Icon(Icons.format_list_bulleted),
+                              tooltip: 'Danh sách',
+                              onPressed: _insertBulletPoint,
                             ),
-                          ),
-                        ),
-                      ),
-
-                    // Trình chỉnh sửa ghi chú
-                    Expanded(
-                      child: Container(
-                        // Sử dụng màu nền đã xác định
-                        color: backgroundColor,
-                        padding: const EdgeInsets.all(16.0),
-                        child: Column(
-                          children: [
-                            // Tiêu đề
-                            TextField(
-                              controller: _titleController,
-                              style: TextStyle(
-                                fontSize: 26,
-                                fontWeight: FontWeight.bold,
-                                height: 1.3,
-                                // Sử dụng màu chữ dựa trên màu nền
-                                color: textColor,
-                              ),
-                              maxLines: null,
-                              // Sử dụng biến InputDecoration đã tạo
-                              decoration: titleInputDecoration,
-                              textCapitalization: TextCapitalization.sentences,
+                            IconButton(
+                              icon: const Icon(Icons.format_list_numbered),
+                              tooltip: 'Danh sách số',
+                              onPressed: _insertNumberedPoint,
                             ),
-                            const SizedBox(height: 16),
-
-                            // Nội dung
-                            Expanded(
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: TextField(
-                                  controller: _contentController,
-                                  scrollController: _scrollController,
-                                  focusNode: _focusNode,
-                                  maxLines: null,
-                                  expands: true,
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    color: textColor,
-                                  ),
-                                  // Sử dụng biến InputDecoration đã tạo
-                                  decoration: contentInputDecoration,
-                                  textCapitalization:
-                                      TextCapitalization.sentences,
-                                ),
-                              ),
+                            IconButton(
+                              icon: const Icon(Icons.format_quote),
+                              tooltip: 'Trích dẫn',
+                              onPressed: _insertQuote,
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.title),
+                              tooltip: 'Tiêu đề',
+                              onPressed: _insertHeading,
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.color_lens),
+                              tooltip: 'Màu ghi chú',
+                              onPressed: _selectNoteColor,
                             ),
                           ],
                         ),
                       ),
                     ),
-                  ],
-                ),
+                  ),
+
+                  // Trình chỉnh sửa
+                  Expanded(
+                    child: Container(
+                      color: backgroundColor,
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        children: [
+                          // Tiêu đề
+                          GestureDetector(
+                            onTap: () {
+                              FocusScope.of(context).requestFocus(_focusNode);
+                            },
+                            child: Hero(
+                              tag: 'noteTitleHero-${_note?.id}',
+                              child: TextField(
+                                controller: _titleController,
+                                style: TextStyle(
+                                  fontSize: 26,
+                                  fontWeight: FontWeight.bold,
+                                  height: 1.3,
+                                  color: textColor,
+                                ),
+                                maxLines: null,
+                                decoration: titleInputDecoration,
+                                textCapitalization:
+                                    TextCapitalization.sentences,
+                                enabled: false,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+
+                          // Nội dung (chuyển đổi giữa TextField và Markdown)
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: () {
+                                FocusScope.of(context).requestFocus(_focusNode);
+                              },
+                              child:
+                                  _focusNode.hasFocus
+                                      ? TextField(
+                                        controller: _contentController,
+                                        focusNode: _focusNode,
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          color: textColor,
+                                          fontWeight:
+                                              _isBold
+                                                  ? FontWeight.bold
+                                                  : FontWeight.normal,
+                                          fontStyle:
+                                              _isItalic
+                                                  ? FontStyle.italic
+                                                  : FontStyle.normal,
+                                          decoration:
+                                              _isStrikethrough
+                                                  ? TextDecoration.lineThrough
+                                                  : TextDecoration.none,
+                                        ),
+                                        maxLines: null,
+                                        decoration: contentInputDecoration,
+                                        textCapitalization:
+                                            TextCapitalization.sentences,
+                                        onChanged: (newText) {
+                                          _updateFormattingState(newText);
+                                        },
+                                      )
+                                      : Markdown(
+                                        data: _contentController.text,
+                                        selectable: true,
+                                        styleSheet: MarkdownStyleSheet(
+                                          p: TextStyle(
+                                            fontSize: 16,
+                                            color: textColor,
+                                          ),
+                                          strong: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            color: textColor,
+                                          ),
+                                          em: TextStyle(
+                                            fontStyle: FontStyle.italic,
+                                            color: textColor,
+                                          ),
+                                          del: TextStyle(
+                                            decoration:
+                                                TextDecoration.lineThrough,
+                                            color: textColor,
+                                          ),
+                                          code: TextStyle(
+                                            backgroundColor:
+                                                theme
+                                                    .colorScheme
+                                                    .surfaceVariant,
+                                            color:
+                                                theme
+                                                    .colorScheme
+                                                    .onSurfaceVariant,
+                                            fontFamily: 'monospace',
+                                          ),
+                                        ),
+                                      ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
